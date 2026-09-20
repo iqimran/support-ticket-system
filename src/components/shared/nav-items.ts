@@ -22,13 +22,15 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Tickets", href: "/tickets", icon: Ticket },
   { label: "Customers", href: "/customers", icon: Users },
-  { label: "Team Members", href: "/team-members", icon: UserCog },
   { label: "Reports", href: "/reports", icon: BarChart3 },
   { label: "Archive", href: "/archive", icon: Archive },
 ];
 
-// Rendered only when canViewPaymentAudit(user) is true.
+// Rendered only when canViewPaymentAudit(user) is true — team member
+// management is ADMIN-only (see prompt 3's permission matrix and the
+// team-members feature's explicit "Admin-only functionality" framing).
 export const ADMIN_NAV_ITEMS: NavItem[] = [
+  { label: "Team Members", href: "/team-members", icon: UserCog },
   { label: "Payment Audit", href: "/admin/payment-audit", icon: ShieldCheck },
   { label: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
 ];

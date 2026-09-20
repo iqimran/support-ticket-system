@@ -28,6 +28,17 @@ let betaUserId: string;
 const ticketIds: Record<string, string> = {};
 const cleanupUserIds: string[] = [];
 
+// getTicketStats/getPaymentStats aggregate globally over the date range,
+// with no way to scope to just this file's fixtures (unlike getTeamStats,
+// whose rows are keyed by this file's own randomly-generated team member
+// IDs and so can't be polluted by other tests). Snapshotting the totals
+// *before* creating any fixtures and asserting on the delta makes these
+// two immune to any other test file's data landing in the same January
+// 2026 window when Vitest runs files in parallel against the shared dev
+// database — which is exactly what caused this suite to flake in practice.
+let baselineTicketStats: Awaited<ReturnType<typeof getTicketStats>>;
+let baselinePaymentStats: Awaited<ReturnType<typeof getPaymentStats>>;
+
 async function createTicket(opts: {
   key: string;
   createdAt: string;
@@ -50,6 +61,9 @@ async function createTicket(opts: {
 }
 
 beforeAll(async () => {
+  baselineTicketStats = await getTicketStats(JANUARY_2026);
+  baselinePaymentStats = await getPaymentStats(JANUARY_2026);
+
   const passwordHash = await hashPassword("Fixture-Pass-123!");
 
   const creator = await prisma.user.upsert({
@@ -157,13 +171,15 @@ describe("getTicketStats — known seed data for January 2026", () => {
   it("counts total/pending/in-progress/cancelled by creation date, and completed by completion date", async () => {
     const stats = await getTicketStats(JANUARY_2026);
 
-    expect(stats.total).toBe(5); // T1, T2, T3, T5, T7 (T4 created Dec, T6 created Feb — excluded)
-    expect(stats.pending).toBe(2); // T1, T7
-    expect(stats.inProgress).toBe(1); // T2
-    expect(stats.cancelled).toBe(1); // T5
+    // Deltas against the pre-fixture baseline — see the comment on
+    // baselineTicketStats for why this must not assert absolute totals.
+    expect(stats.total - baselineTicketStats.total).toBe(5); // T1, T2, T3, T5, T7 (T4 created Dec, T6 created Feb — excluded)
+    expect(stats.pending - baselineTicketStats.pending).toBe(2); // T1, T7
+    expect(stats.inProgress - baselineTicketStats.inProgress).toBe(1); // T2
+    expect(stats.cancelled - baselineTicketStats.cancelled).toBe(1); // T5
     // T3 (created+completed in Jan) AND T4 (created Dec, completed Jan) —
     // proves completed uses completedAt, not createdAt.
-    expect(stats.completed).toBe(2);
+    expect(stats.completed - baselineTicketStats.completed).toBe(2);
   });
 });
 
@@ -171,9 +187,20 @@ describe("getPaymentStats — known seed data for January 2026", () => {
   it("sums/counts/averages only payments whose receivedAt falls in range", async () => {
     const stats = await getPaymentStats(JANUARY_2026);
 
-    expect(stats.totalReceived).toBe("600"); // 100 + 200 + 300; the 1000 in December is excluded
-    expect(stats.transactionCount).toBe(3);
-    expect(stats.averagePayment).toBe("200"); // 600 / 3, exactly
+    // Delta against the pre-fixture baseline (see comment above) — the raw
+    // total/count are not asserted directly since other test files can
+    // legitimately have their own payments landing in this same month.
+    const totalDelta = Number(stats.totalReceived) - Number(baselinePaymentStats.totalReceived);
+    const countDelta = stats.transactionCount - baselinePaymentStats.transactionCount;
+    expect(totalDelta).toBe(600); // 100 + 200 + 300; the 1000 in December is excluded
+    expect(countDelta).toBe(3);
+
+    // The average is over the *whole* range including any baseline
+    // payments, so reconstruct the expected value from the baseline rather
+    // than asserting a fixed number.
+    const expectedAverage =
+      (Number(baselinePaymentStats.totalReceived) + 600) / (baselinePaymentStats.transactionCount + 3);
+    expect(Number(stats.averagePayment)).toBeCloseTo(expectedAverage, 6);
   });
 });
 

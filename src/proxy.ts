@@ -16,7 +16,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (request.nextUrl.pathname.startsWith("/admin") && user.role !== "ADMIN") {
+  const isAdminOnlyPath =
+    request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname.startsWith("/team-members");
+  if (isAdminOnlyPath && user.role !== "ADMIN") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
