@@ -36,11 +36,6 @@ export function updateCustomerRecord(id: string, data: CustomerUpdateInput) {
   return prisma.customer.update({ where: { id }, data });
 }
 
-/** True for a Prisma unique-constraint violation (P2002) — used to catch the create/update race on Customer.phone. */
-export function isUniqueConstraintError(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
-}
-
 function buildCustomerSearchWhere(query: string): Prisma.CustomerWhereInput | undefined {
   const trimmed = query.trim();
   if (!trimmed) return undefined;

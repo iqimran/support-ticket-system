@@ -1,4 +1,5 @@
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { UrlPagination } from "@/components/shared/url-pagination";
 import { CustomerFormDialog } from "@/features/customers/components/customer-form-dialog";
 import { getCustomerDetail } from "@/features/customers/queries";
 import type { TicketHistoryEntry } from "@/features/customers/ticket-history";
+import { TicketFormDialog } from "@/features/tickets/components/ticket-form-dialog";
 import { formatBangladeshiPhoneForDisplay } from "@/lib/phone";
 import { requireTeamMember } from "@/server/authorization";
 
@@ -38,7 +40,15 @@ export default async function CustomerDetailPage({ params, searchParams }: Custo
   const totalHistoryPages = Math.max(Math.ceil(history.total / HISTORY_PAGE_SIZE), 1);
 
   const historyColumns: DataTableColumn<TicketHistoryEntry>[] = [
-    { key: "ticketNumber", header: "Ticket #" },
+    {
+      key: "ticketNumber",
+      header: "Ticket #",
+      render: (row) => (
+        <Link href={`/tickets/${row.id}`} className="font-medium hover:underline">
+          {row.ticketNumber}
+        </Link>
+      ),
+    },
     { key: "problem", header: "Problem" },
     { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} /> },
     { key: "createdAt", header: "Created", render: (row) => new Date(row.createdAt).toLocaleDateString() },
@@ -50,16 +60,27 @@ export default async function CustomerDetailPage({ params, searchParams }: Custo
         title={customer.name || formatBangladeshiPhoneForDisplay(customer.phone)}
         description={formatBangladeshiPhoneForDisplay(customer.phone)}
         actions={
-          <CustomerFormDialog
-            mode="edit"
-            customer={customer}
-            trigger={
-              <Button type="button" variant="outline">
-                <Pencil aria-hidden="true" />
-                Edit
-              </Button>
-            }
-          />
+          <>
+            <TicketFormDialog
+              fixedCustomer={{ id: customer.id, phone: customer.phone, name: customer.name }}
+              trigger={
+                <Button type="button">
+                  <Plus aria-hidden="true" />
+                  New ticket
+                </Button>
+              }
+            />
+            <CustomerFormDialog
+              mode="edit"
+              customer={customer}
+              trigger={
+                <Button type="button" variant="outline">
+                  <Pencil aria-hidden="true" />
+                  Edit
+                </Button>
+              }
+            />
+          </>
         }
       />
 

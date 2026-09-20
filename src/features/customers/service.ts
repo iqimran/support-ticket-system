@@ -4,9 +4,9 @@ import {
   createCustomerRecord,
   findCustomerByPhone,
   findCustomerById,
-  isUniqueConstraintError,
   updateCustomerRecord,
 } from "@/features/customers/repository";
+import { isUniqueConstraintError } from "@/server/db/errors";
 
 export type CreateCustomerResult =
   | { status: "created"; customer: Customer }

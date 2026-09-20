@@ -2,9 +2,27 @@
 
 import { revalidatePath } from "next/cache";
 import { createCustomer, updateCustomer } from "@/features/customers/service";
+import { listCustomers } from "@/features/customers/repository";
 import { customerFormSchema } from "@/features/customers/schemas";
 import { recordAuditLog } from "@/server/audit/log";
 import { requireTeamMember } from "@/server/authorization";
+
+export type CustomerPickerResult = { id: string; phone: string; name: string | null };
+
+/** Small, trimmed customer search for combobox pickers (e.g. ticket creation). */
+export async function searchCustomersForPickerAction(query: string): Promise<CustomerPickerResult[]> {
+  await requireTeamMember();
+
+  const { items } = await listCustomers({
+    query,
+    page: 1,
+    pageSize: 10,
+    sortBy: "createdAt",
+    sortDir: "desc",
+  });
+
+  return items.map((item) => ({ id: item.id, phone: item.phone, name: item.name }));
+}
 
 export type CustomerActionResult =
   | { status: "success"; customerId: string }
