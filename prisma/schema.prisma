@@ -136,6 +136,7 @@ model Ticket {
   @@index([status, createdAt])
   @@index([customerId, createdAt])
   @@index([archivedAt])
+  @@index([status, completedAt])
 }
 
 model TicketAssignment {
@@ -152,6 +153,7 @@ model TicketAssignment {
   // Prevents assigning the same team member to the same ticket twice.
   @@unique([ticketId, teamMemberId])
   @@index([teamMemberId, ticketId])
+  @@index([teamMemberId, assignedAt])
 }
 
 model TicketStatusHistory {
@@ -204,6 +206,7 @@ model Payment {
 
   @@index([ticketId])
   @@index([receivedAt])
+  @@index([receivedBy, receivedAt])
 }
 
 /// Append-only trail for every payment create/update/delete-attempt.

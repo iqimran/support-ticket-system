@@ -1,0 +1,28 @@
+import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
+import { EmptyState } from "@/components/shared/empty-state";
+import { MoneyDisplay } from "@/components/shared/money-display";
+import type { TeamMemberStat } from "@/features/dashboard/repository";
+
+export function TeamStatsTable({ stats }: { stats: TeamMemberStat[] }) {
+  const columns: DataTableColumn<TeamMemberStat>[] = [
+    { key: "teamMemberName", header: "Team member" },
+    { key: "assignedCount", header: "Assigned" },
+    { key: "pendingCount", header: "Pending" },
+    { key: "inProgressCount", header: "In progress" },
+    { key: "completedCount", header: "Completed" },
+    {
+      key: "totalReceived",
+      header: "Payments recorded",
+      render: (row) => <MoneyDisplay amount={row.totalReceived} />,
+    },
+  ];
+
+  return (
+    <DataTable
+      columns={columns}
+      data={stats}
+      getRowId={(row) => row.teamMemberId}
+      emptyState={<EmptyState title="No active team members" />}
+    />
+  );
+}

@@ -1,13 +1,13 @@
 import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UrlPagination } from "@/components/shared/url-pagination";
 import { CustomerFormDialog } from "@/features/customers/components/customer-form-dialog";
@@ -124,16 +124,5 @@ export default async function CustomerDetailPage({ params, searchParams }: Custo
         ) : null}
       </div>
     </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <Card>
-      <CardContent className="space-y-1 p-4">
-        <p className="text-muted-foreground text-xs">{label}</p>
-        <p className="text-2xl font-semibold">{value}</p>
-      </CardContent>
-    </Card>
   );
 }
