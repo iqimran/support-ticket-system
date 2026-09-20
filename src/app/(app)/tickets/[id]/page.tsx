@@ -15,6 +15,7 @@ import { TicketTimeline } from "@/features/tickets/components/ticket-timeline";
 import { PRIORITY_TONES } from "@/features/tickets/priority-tone";
 import { getTicketDetail } from "@/features/tickets/queries";
 import type { TicketDetail } from "@/features/tickets/repository";
+import { formatDateTime } from "@/lib/format-date";
 import { formatBangladeshiPhoneForDisplay } from "@/lib/phone";
 import { requireTeamMember } from "@/server/authorization";
 
@@ -33,7 +34,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
   const noteColumns: DataTableColumn<TicketDetail["notes"][number]>[] = [
     { key: "note", header: "Note" },
     { key: "creator", header: "Author", render: (row) => row.creator.name },
-    { key: "createdAt", header: "When", render: (row) => new Date(row.createdAt).toLocaleString() },
+    { key: "createdAt", header: "When", render: (row) => formatDateTime(row.createdAt) },
   ];
 
   const historyColumns: DataTableColumn<TicketDetail["statusHistory"][number]>[] = [
@@ -41,7 +42,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
     { key: "newStatus", header: "To", render: (row) => <StatusBadge status={row.newStatus} /> },
     { key: "changedByUser", header: "Changed by", render: (row) => row.changedByUser.name },
     { key: "note", header: "Reason / note", render: (row) => row.note ?? <span className="text-muted-foreground">—</span> },
-    { key: "createdAt", header: "When", render: (row) => new Date(row.createdAt).toLocaleString() },
+    { key: "createdAt", header: "When", render: (row) => formatDateTime(row.createdAt) },
   ];
 
   return (
@@ -66,15 +67,15 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
             </div>
             <div>
               <span className="text-muted-foreground">Created: </span>
-              {new Date(ticket.createdAt).toLocaleString()}
+              {formatDateTime(ticket.createdAt)}
             </div>
             <div>
               <span className="text-muted-foreground">Last updated: </span>
-              {new Date(ticket.updatedAt).toLocaleString()}
+              {formatDateTime(ticket.updatedAt)}
             </div>
             <div>
               <span className="text-muted-foreground">Completed: </span>
-              {ticket.completedAt ? new Date(ticket.completedAt).toLocaleString() : "—"}
+              {ticket.completedAt ? formatDateTime(ticket.completedAt) : "—"}
             </div>
           </CardContent>
         </Card>

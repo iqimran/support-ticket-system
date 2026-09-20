@@ -11,10 +11,22 @@ type SortableColumnHeaderProps = {
   sortKey: string;
   currentSortBy: string;
   currentSortDir: SortDirection;
+  /** Query param names to read/write — override when a page has multiple independently-sorted/paginated sections (e.g. "historySortBy"/"historySortDir"/"historyPage"). */
+  sortByParam?: string;
+  sortDirParam?: string;
+  pageParam?: string;
 };
 
 // Generic URL-driven sort toggle for use as a DataTableColumn's `header`.
-export function SortableColumnHeader({ label, sortKey, currentSortBy, currentSortDir }: SortableColumnHeaderProps) {
+export function SortableColumnHeader({
+  label,
+  sortKey,
+  currentSortBy,
+  currentSortDir,
+  sortByParam = "sortBy",
+  sortDirParam = "sortDir",
+  pageParam = "page",
+}: SortableColumnHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -25,9 +37,9 @@ export function SortableColumnHeader({ label, sortKey, currentSortBy, currentSor
 
   function handleClick() {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("sortBy", sortKey);
-    params.set("sortDir", nextDir);
-    params.set("page", "1");
+    params.set(sortByParam, sortKey);
+    params.set(sortDirParam, nextDir);
+    params.set(pageParam, "1");
     router.push(`${pathname}?${params.toString()}`);
   }
 

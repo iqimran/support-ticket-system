@@ -7,6 +7,7 @@ import { RecentActivity } from "@/features/dashboard/components/recent-activity"
 import { TeamStatsTable } from "@/features/dashboard/components/team-stats-table";
 import { getDailySummaryForDate, getDashboardData } from "@/features/dashboard/queries";
 import { dashboardPeriodSchema } from "@/features/dashboard/schemas";
+import { formatDate } from "@/lib/format-date";
 import type { AuthUser } from "@/server/auth/types";
 import { canViewPaymentAudit, requireAuth } from "@/server/authorization";
 
@@ -31,7 +32,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   ]);
 
   const { ticketStats, paymentStats, teamStats, recentActivity } = dashboard;
-  const periodLabel = `${dashboard.range.from.toLocaleDateString()} – ${dashboard.range.to.toLocaleDateString()}`;
+  const periodLabel = `${formatDate(dashboard.range.from)} – ${formatDate(dashboard.range.to)}`;
 
   return (
     <div className="space-y-8">

@@ -10,6 +10,7 @@ import { PRIORITY_TONES } from "@/features/tickets/priority-tone";
 import { searchTickets } from "@/features/tickets/queries";
 import type { TicketListItem } from "@/features/tickets/repository";
 import { ticketSearchSchema } from "@/features/tickets/schemas";
+import { formatDate } from "@/lib/format-date";
 import { formatBangladeshiPhoneForDisplay } from "@/lib/phone";
 import { requireTeamMember } from "@/server/authorization";
 
@@ -89,12 +90,12 @@ export default async function TicketsPage({ searchParams }: TicketsPageProps) {
     {
       key: "createdAt",
       header: sortHeader("Created", "createdAt"),
-      render: (row) => new Date(row.createdAt).toLocaleDateString(),
+      render: (row) => formatDate(row.createdAt),
     },
     {
       key: "updatedAt",
       header: sortHeader("Updated", "updatedAt"),
-      render: (row) => new Date(row.updatedAt).toLocaleDateString(),
+      render: (row) => formatDate(row.updatedAt),
     },
   ];
 

@@ -1,5 +1,5 @@
 import { findCustomerById, getCustomerTicketStats, listCustomers, type CustomerListItem } from "@/features/customers/repository";
-import type { CustomerSearchInput } from "@/features/customers/schemas";
+import type { CustomerHistorySearchInput, CustomerSearchInput } from "@/features/customers/schemas";
 import { getCustomerSupportHistory, type TicketHistoryPagination } from "@/features/customers/ticket-history";
 
 // Read-side only. Callers (pages) are responsible for calling
@@ -10,11 +10,24 @@ export function searchCustomers(params: CustomerSearchInput): Promise<{ items: C
   return listCustomers(params);
 }
 
-export async function getCustomerDetail(id: string, historyPagination: TicketHistoryPagination) {
+export async function getCustomerDetail(id: string, historySearch: CustomerHistorySearchInput) {
+  const pagination: TicketHistoryPagination = { page: historySearch.page, pageSize: historySearch.pageSize };
+
   const [customer, stats, history] = await Promise.all([
     findCustomerById(id),
     getCustomerTicketStats(id),
-    getCustomerSupportHistory(id, historyPagination),
+    getCustomerSupportHistory(
+      id,
+      {
+        query: historySearch.query,
+        status: historySearch.status,
+        dateFrom: historySearch.dateFrom,
+        dateTo: historySearch.dateTo,
+        sortBy: historySearch.sortBy,
+        sortDir: historySearch.sortDir,
+      },
+      pagination,
+    ),
   ]);
 
   if (!customer) return null;

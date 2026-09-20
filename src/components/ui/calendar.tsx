@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "cn"
+import { enGB } from "date-fns/locale"
 import {
   DayPicker,
   getDefaultClassNames,
@@ -18,7 +19,13 @@ function Calendar({
   showOutsideDays = true,
   captionLayout = "label",
   buttonVariant = "ghost",
-  locale,
+  // Defaulted (not left undefined): formatMonthDropdown and
+  // CalendarDayButton below format dates via `locale?.code`. Leaving that
+  // undefined falls back to the JS runtime's ambient default locale, which
+  // differs between server (Node) and client (browser) and causes a
+  // hydration mismatch — the exact "server rendered text didn't match the
+  // client" error this default prevents.
+  locale = enGB,
   formatters,
   components,
   ...props

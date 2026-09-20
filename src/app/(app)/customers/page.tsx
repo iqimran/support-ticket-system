@@ -8,6 +8,7 @@ import { CustomerToolbar } from "@/features/customers/components/customer-toolba
 import { searchCustomers } from "@/features/customers/queries";
 import type { CustomerListItem } from "@/features/customers/repository";
 import { customerSearchSchema } from "@/features/customers/schemas";
+import { formatDate } from "@/lib/format-date";
 import { formatBangladeshiPhoneForDisplay } from "@/lib/phone";
 import { requireTeamMember } from "@/server/authorization";
 
@@ -57,7 +58,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
       header: "Last support",
       render: (row) =>
         row.lastSupportAt ? (
-          new Date(row.lastSupportAt).toLocaleDateString()
+          formatDate(row.lastSupportAt)
         ) : (
           <span className="text-muted-foreground">—</span>
         ),
@@ -65,7 +66,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
     {
       key: "createdAt",
       header: sortHeader("Created", "createdAt"),
-      render: (row) => new Date(row.createdAt).toLocaleDateString(),
+      render: (row) => formatDate(row.createdAt),
     },
   ];
 

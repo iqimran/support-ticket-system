@@ -1,14 +1,13 @@
 import { TZDate } from "@date-fns/tz";
 import { endOfDay, endOfMonth, startOfDay, startOfMonth, subDays, subMonths } from "date-fns";
+import { BUSINESS_TIMEZONE } from "@/lib/timezone";
 
-// This project is Bangladesh-specific (see src/lib/phone.ts). "Today",
-// "this month", etc. must mean the business's actual calendar day/month,
-// not whatever timezone happens to be configured on the server — most
-// hosting defaults to UTC, which would silently misclassify anything
-// within ~6 hours of local midnight. All boundary math below is anchored
-// to this timezone explicitly via @date-fns/tz's TZDate, regardless of the
-// server's own TZ setting.
-const BUSINESS_TIMEZONE = "Asia/Dhaka";
+// "Today", "this month", etc. must mean the business's actual calendar
+// day/month, not whatever timezone happens to be configured on the server
+// — most hosting defaults to UTC, which would silently misclassify
+// anything within ~6 hours of local midnight. All boundary math below is
+// anchored to BUSINESS_TIMEZONE explicitly via @date-fns/tz's TZDate,
+// regardless of the server's own TZ setting.
 
 export const DASHBOARD_PERIODS = [
   "today",

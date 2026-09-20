@@ -5,6 +5,7 @@ import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
 type DateRangePickerProps = {
@@ -16,9 +17,9 @@ type DateRangePickerProps = {
 
 function formatRange(range: DateRange | undefined, placeholder: string): string {
   if (!range?.from) return placeholder;
-  const from = range.from.toLocaleDateString();
+  const from = formatDate(range.from);
   if (!range.to || range.to.getTime() === range.from.getTime()) return from;
-  return `${from} - ${range.to.toLocaleDateString()}`;
+  return `${from} - ${formatDate(range.to)}`;
 }
 
 export function DateRangePicker({

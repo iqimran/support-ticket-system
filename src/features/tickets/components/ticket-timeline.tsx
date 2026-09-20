@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { TicketTimelineEntry } from "@/features/tickets/queries";
+import { formatDateTime } from "@/lib/format-date";
 
 function formatStatus(status: string): string {
   return status.replace(/_/g, " ");
@@ -68,7 +69,7 @@ export function TicketTimeline({ entries }: { entries: TicketTimelineEntry[] }) 
             </span>
             <div className="space-y-0.5">
               <p>{text}</p>
-              <p className="text-muted-foreground text-xs">{entry.at.toLocaleString()}</p>
+              <p className="text-muted-foreground text-xs">{formatDateTime(entry.at)}</p>
             </div>
           </li>
         );

@@ -8,6 +8,7 @@ import { MoneyDisplay } from "@/components/shared/money-display";
 import { PaymentTotalsWidget } from "@/features/payments/components/payment-totals-widget";
 import { getDailyPaymentTotal, getMonthlyPaymentTotal, getPaymentAuditLogs } from "@/features/payments/queries";
 import { paymentAuditLogSearchSchema } from "@/features/payments/schemas";
+import { formatDateTime } from "@/lib/format-date";
 import { requireAdmin } from "@/server/authorization";
 
 type PaymentAuditLogRow = Awaited<ReturnType<typeof getPaymentAuditLogs>>["items"][number];
@@ -82,7 +83,7 @@ export default async function PaymentAuditPage({ searchParams }: PaymentAuditPag
       render: (row) => <FieldChange oldValue={row.oldNote} newValue={row.newNote} />,
     },
     { key: "changedByUser", header: "Changed by", render: (row) => row.changedByUser.name },
-    { key: "createdAt", header: "When", render: (row) => new Date(row.createdAt).toLocaleString() },
+    { key: "createdAt", header: "When", render: (row) => formatDateTime(row.createdAt) },
   ];
 
   return (

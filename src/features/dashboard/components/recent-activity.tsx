@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import type { getRecentActivity } from "@/features/dashboard/repository";
+import { formatDate } from "@/lib/format-date";
 import { formatBangladeshiPhoneForDisplay } from "@/lib/phone";
 
 type RecentActivityData = Awaited<ReturnType<typeof getRecentActivity>>;
@@ -57,7 +58,7 @@ export function RecentActivity({ recentTickets, recentCompletedTickets, recentPa
                 </Link>
                 <p className="text-muted-foreground truncate text-xs">
                   {ticket.customer.name ?? formatBangladeshiPhoneForDisplay(ticket.customer.phone)}
-                  {ticket.completedAt ? ` — ${new Date(ticket.completedAt).toLocaleDateString()}` : null}
+                  {ticket.completedAt ? ` — ${formatDate(ticket.completedAt)}` : null}
                 </p>
               </li>
             ))}
@@ -77,7 +78,7 @@ export function RecentActivity({ recentTickets, recentCompletedTickets, recentPa
                     {payment.ticket.ticketNumber}
                   </Link>
                   <p className="text-muted-foreground text-xs">
-                    {payment.receiver.name} — {new Date(payment.receivedAt).toLocaleDateString()}
+                    {payment.receiver.name} — {formatDate(payment.receivedAt)}
                   </p>
                 </div>
                 <MoneyDisplay amount={payment.amount.toString()} className="font-medium" />

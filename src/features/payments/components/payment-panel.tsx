@@ -6,6 +6,7 @@ import { MoneyDisplay } from "@/components/shared/money-display";
 import { PaymentFormDialog } from "@/features/payments/components/payment-form-dialog";
 import type { TicketDetail } from "@/features/tickets/repository";
 import type { TicketStatus } from "@/generated/prisma/enums";
+import { formatDate } from "@/lib/format-date";
 
 type PaymentRow = TicketDetail["payments"][number];
 
@@ -22,7 +23,7 @@ export function PaymentPanel({ ticketId, ticketStatus, payments, totalReceived }
     { key: "paymentMethod", header: "Method", render: (row) => row.paymentMethod.replace("_", " ") },
     { key: "note", header: "Note", render: (row) => row.note ?? <span className="text-muted-foreground">—</span> },
     { key: "receiver", header: "Received by", render: (row) => row.receiver.name },
-    { key: "receivedAt", header: "Received", render: (row) => new Date(row.receivedAt).toLocaleDateString() },
+    { key: "receivedAt", header: "Received", render: (row) => formatDate(row.receivedAt) },
     {
       key: "id",
       header: "",
