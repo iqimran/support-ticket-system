@@ -1,4 +1,5 @@
 import { Prisma } from "@/generated/prisma/client";
+import { getCustomerPaymentTotal } from "@/features/payments/repository";
 import { extractPhoneSearchDigits } from "@/lib/phone";
 import { prisma } from "@/server/db/prisma";
 import type { CustomerSearchInput } from "@/features/customers/schemas";
@@ -105,17 +106,17 @@ export type CustomerTicketStats = {
 };
 
 export async function getCustomerTicketStats(customerId: string): Promise<CustomerTicketStats> {
-  const [totalTicketCount, activeTicketCount, completedTicketCount, paymentTotal] = await Promise.all([
+  const [totalTicketCount, activeTicketCount, completedTicketCount, totalReceivedPayment] = await Promise.all([
     prisma.ticket.count({ where: { customerId } }),
     prisma.ticket.count({ where: { customerId, archivedAt: null, status: { in: ["PENDING", "IN_PROGRESS"] } } }),
     prisma.ticket.count({ where: { customerId, status: "COMPLETED" } }),
-    prisma.payment.aggregate({ where: { ticket: { customerId } }, _sum: { amount: true } }),
+    getCustomerPaymentTotal(customerId),
   ]);
 
   return {
     totalTicketCount,
     activeTicketCount,
     completedTicketCount,
-    totalReceivedPayment: (paymentTotal._sum.amount ?? new Prisma.Decimal(0)).toString(),
+    totalReceivedPayment,
   };
 }

@@ -4,9 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { PaymentPanel } from "@/features/payments/components/payment-panel";
+import { getTicketPaymentTotal } from "@/features/payments/queries";
 import { TicketAssignmentPanel } from "@/features/tickets/components/ticket-assignment-panel";
 import { TicketNoteForm } from "@/features/tickets/components/ticket-note-form";
 import { TicketStatusControl } from "@/features/tickets/components/ticket-status-control";
@@ -27,6 +28,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
   if (!detail) notFound();
 
   const { ticket, timeline } = detail;
+  const totalReceived = await getTicketPaymentTotal(ticket.id);
 
   const noteColumns: DataTableColumn<TicketDetail["notes"][number]>[] = [
     { key: "note", header: "Note" },
@@ -40,13 +42,6 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
     { key: "changedByUser", header: "Changed by", render: (row) => row.changedByUser.name },
     { key: "note", header: "Reason / note", render: (row) => row.note ?? <span className="text-muted-foreground">—</span> },
     { key: "createdAt", header: "When", render: (row) => new Date(row.createdAt).toLocaleString() },
-  ];
-
-  const paymentColumns: DataTableColumn<TicketDetail["payments"][number]>[] = [
-    { key: "amount", header: "Amount", render: (row) => <MoneyDisplay amount={row.amount.toString()} /> },
-    { key: "paymentMethod", header: "Method" },
-    { key: "receiver", header: "Received by", render: (row) => row.receiver.name },
-    { key: "receivedAt", header: "Received at", render: (row) => new Date(row.receivedAt).toLocaleString() },
   ];
 
   return (
@@ -151,11 +146,11 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
         </TabsContent>
 
         <TabsContent value="payments" className="pt-4">
-          <DataTable
-            columns={paymentColumns}
-            data={ticket.payments}
-            getRowId={(row) => row.id}
-            emptyState={<EmptyState title="No payments recorded yet" description="Payment recording is not built yet." />}
+          <PaymentPanel
+            ticketId={ticket.id}
+            ticketStatus={ticket.status}
+            payments={ticket.payments}
+            totalReceived={totalReceived}
           />
         </TabsContent>
       </Tabs>
