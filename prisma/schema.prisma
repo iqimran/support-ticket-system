@@ -1,0 +1,253 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  TEAM_MEMBER
+}
+
+enum TicketStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  MOBILE_BANKING
+  OTHER
+}
+
+enum PaymentAuditAction {
+  CREATED
+  UPDATED
+  DELETE_ATTEMPTED
+}
+
+/// Login/auth identity + role. Business-facing team member profile data
+/// lives on TeamMember, linked 1:1 via TeamMember.userId.
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String   @unique
+  passwordHash String
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teamMember          TeamMember?
+  createdTickets      Ticket[]              @relation("TicketCreatedBy")
+  assignmentsMade     TicketAssignment[]    @relation("AssignmentAssignedBy")
+  statusChangesMade   TicketStatusHistory[] @relation("StatusChangedBy")
+  ticketNotesWritten  TicketNote[]          @relation("TicketNoteCreatedBy")
+  paymentsReceived    Payment[]             @relation("PaymentReceivedBy")
+  paymentAuditEntries PaymentAuditLog[]     @relation("PaymentAuditChangedBy")
+  auditLogEntries     AuditLog[]            @relation("AuditLogActor")
+  sessions            Session[]
+}
+
+/// Server-side session record. The cookie holds a random opaque token; only
+/// an HMAC hash of it is stored here so a DB leak alone can't be replayed
+/// as a valid session.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Business profile for a TEAM_MEMBER-role User (assignment target, display
+/// name/phone/availability). Kept separate from User so a team member can be
+/// taken off assignment rotation (isActive = false here) without disabling
+/// their login (User.isActive).
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  name      String
+  phone     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments TicketAssignment[]
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String?
+  address   String?
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets Ticket[]
+}
+
+/// Tickets are never deleted and never moved to a separate table on
+/// archival — archivedAt is just a marker so archived tickets stay
+/// historically searchable through the same queries/indexes.
+model Ticket {
+  id           String         @id @default(cuid())
+  ticketNumber String         @unique
+  customerId   String
+  problem      String
+  status       TicketStatus   @default(PENDING)
+  priority     TicketPriority @default(MEDIUM)
+  createdBy    String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  completedAt  DateTime?
+  archivedAt   DateTime?
+
+  customer         Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  creator          User                  @relation("TicketCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  assignments      TicketAssignment[]
+  statusHistory    TicketStatusHistory[]
+  notes            TicketNote[]
+  payments         Payment[]
+  paymentAuditLogs PaymentAuditLog[]
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([customerId, createdAt])
+  @@index([archivedAt])
+}
+
+model TicketAssignment {
+  id           String   @id @default(cuid())
+  ticketId     String
+  teamMemberId String
+  assignedBy   String
+  assignedAt   DateTime @default(now())
+
+  ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Restrict)
+  assigner   User       @relation("AssignmentAssignedBy", fields: [assignedBy], references: [id], onDelete: Restrict)
+
+  // Prevents assigning the same team member to the same ticket twice.
+  @@unique([ticketId, teamMemberId])
+  @@index([teamMemberId, ticketId])
+}
+
+model TicketStatusHistory {
+  id        String       @id @default(cuid())
+  ticketId  String
+  oldStatus TicketStatus
+  newStatus TicketStatus
+  changedBy String
+  note      String?
+  createdAt DateTime     @default(now())
+
+  ticket        Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  changedByUser User   @relation("StatusChangedBy", fields: [changedBy], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt])
+}
+
+model TicketNote {
+  id        String   @id @default(cuid())
+  ticketId  String
+  createdBy String
+  note      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticket  Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  creator User   @relation("TicketNoteCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt])
+}
+
+/// Actual money received from a customer. Rows are never deleted — see
+/// PaymentAuditLog, whose Restrict relation back to this table makes
+/// deletion impossible at the DB level once an audit trail exists (which
+/// happens immediately on creation).
+model Payment {
+  id            String        @id @default(cuid())
+  ticketId      String
+  amount        Decimal       @db.Decimal(12, 2)
+  paymentMethod PaymentMethod
+  note          String?
+  receivedBy    String
+  receivedAt    DateTime
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  ticket    Ticket            @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  receiver  User              @relation("PaymentReceivedBy", fields: [receivedBy], references: [id], onDelete: Restrict)
+  auditLogs PaymentAuditLog[]
+
+  @@index([ticketId])
+  @@index([receivedAt])
+}
+
+/// Append-only trail for every payment create/update/delete-attempt.
+/// Read access must be restricted to ADMIN at the application layer.
+model PaymentAuditLog {
+  id               String             @id @default(cuid())
+  paymentId        String
+  ticketId         String
+  action           PaymentAuditAction
+  oldAmount        Decimal?           @db.Decimal(12, 2)
+  newAmount        Decimal?           @db.Decimal(12, 2)
+  oldPaymentMethod PaymentMethod?
+  newPaymentMethod PaymentMethod?
+  oldNote          String?
+  newNote          String?
+  changedBy        String
+  createdAt        DateTime           @default(now())
+
+  payment       Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  ticket        Ticket  @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  changedByUser User    @relation("PaymentAuditChangedBy", fields: [changedBy], references: [id], onDelete: Restrict)
+
+  @@index([paymentId])
+  @@index([ticketId])
+  @@index([createdAt])
+}
+
+/// General security/business action log (login, logout, customer/ticket
+/// mutations, assignments, status changes, payment changes, archive runs).
+/// `action` is a free-form dot-namespaced string (e.g. "ticket.created")
+/// rather than an enum, since this list is expected to grow without a
+/// migration for every new action type. actorId is nullable to allow
+/// system-initiated entries (e.g. an automatic archive job).
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}
