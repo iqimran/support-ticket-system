@@ -70,7 +70,9 @@ test.describe("logout", () => {
     await loginAs(page, E2E_TEAM_MEMBER.phone, E2E_TEAM_MEMBER.password);
     await expect(page).toHaveURL(/\/dashboard/);
 
-    await page.getByRole("button", { name: "Log out" }).click();
+    // "Log out" lives inside the user account dropdown menu.
+    await page.getByRole("button", { name: /Account menu/ }).click();
+    await page.getByRole("menuitem", { name: "Log out" }).click();
     await expect(page).toHaveURL(/\/login/);
 
     // The old session cookie (if replayed) must no longer grant access.
