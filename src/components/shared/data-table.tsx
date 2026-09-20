@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 
 export type DataTableColumn<T> = {
   key: keyof T & string;
-  header: string;
+  header: ReactNode;
   render?: (row: T) => ReactNode;
   className?: string;
+  ariaSort?: "ascending" | "descending" | "none";
 };
 
 type DataTableProps<T> = {
@@ -54,7 +55,7 @@ export function DataTable<T>({
         <TableHeader>
           <TableRow>
             {columns.map((column) => (
-              <TableHead key={column.key} className={column.className}>
+              <TableHead key={column.key} className={column.className} aria-sort={column.ariaSort}>
                 {column.header}
               </TableHead>
             ))}
