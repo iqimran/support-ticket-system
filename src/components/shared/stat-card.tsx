@@ -13,7 +13,7 @@ export function StatCard({ label, value, description, className }: StatCardProps
     <Card className={className}>
       <CardContent className="space-y-1 p-4">
         <p className="text-muted-foreground text-xs">{label}</p>
-        <p className="text-2xl font-semibold">{value}</p>
+        <p className="text-xl font-semibold sm:text-2xl">{value}</p>
         {description ? <p className="text-muted-foreground text-xs">{description}</p> : null}
       </CardContent>
     </Card>

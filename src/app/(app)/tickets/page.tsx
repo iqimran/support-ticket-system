@@ -65,17 +65,21 @@ export default async function TicketsPage({ searchParams }: TicketsPageProps) {
     {
       key: "problem",
       header: "Problem",
-      render: (row) => <span className="line-clamp-2 max-w-xs">{row.problem}</span>,
+      render: (row) => <span className="line-clamp-2 max-w-[32vw] sm:max-w-xs">{row.problem}</span>,
+      // whitespace-nowrap is TableCell's default (keeps most columns tidy on
+      // one line); Problem needs to wrap for line-clamp-2 to actually clamp
+      // instead of just clipping mid-word at the cell edge.
+      className: "whitespace-normal",
     },
     {
       key: "status",
       header: sortHeader("Status", "status"),
       render: (row) => <StatusBadge status={row.status} />,
-    },
-    {
-      key: "priority",
-      header: sortHeader("Priority", "priority"),
-      render: (row) => <StatusBadge status={row.priority} tone={PRIORITY_TONES[row.priority]} />,
+      // Ticket #, Customer, and Problem are this list's job on a phone (see
+      // it, find it); status is one tap away on the ticket, and already
+      // filterable from the dropdown above — the three base columns alone
+      // already use nearly all of a 390px screen's width without it.
+      hideBelow: "sm",
     },
     {
       key: "assignedMembers",
@@ -86,16 +90,25 @@ export default async function TicketsPage({ searchParams }: TicketsPageProps) {
         ) : (
           <span className="text-muted-foreground">Unassigned</span>
         ),
+      hideBelow: "sm",
+    },
+    {
+      key: "priority",
+      header: sortHeader("Priority", "priority"),
+      render: (row) => <StatusBadge status={row.priority} tone={PRIORITY_TONES[row.priority]} />,
+      hideBelow: "sm",
     },
     {
       key: "createdAt",
       header: sortHeader("Created", "createdAt"),
       render: (row) => formatDate(row.createdAt),
+      hideBelow: "md",
     },
     {
       key: "updatedAt",
       header: sortHeader("Updated", "updatedAt"),
       render: (row) => formatDate(row.updatedAt),
+      hideBelow: "md",
     },
   ];
 

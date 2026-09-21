@@ -93,7 +93,7 @@ export function TicketFormDialog({ trigger, fixedCustomer }: TicketFormDialogPro
                 <CustomerCombobox value={customer} onChange={setCustomer} />
               )}
               {errors.customerId ? (
-                <p role="alert" className="text-destructive text-sm">
+                <p id="customer-error" role="alert" className="text-destructive text-sm">
                   {errors.customerId[0]}
                 </p>
               ) : null}
@@ -123,9 +123,11 @@ export function TicketFormDialog({ trigger, fixedCustomer }: TicketFormDialogPro
                 value={problem}
                 onChange={(event) => setProblem(event.target.value)}
                 required
+                aria-invalid={!!errors.problem}
+                aria-describedby={errors.problem ? "problem-error" : undefined}
               />
               {errors.problem ? (
-                <p role="alert" className="text-destructive text-sm">
+                <p id="problem-error" role="alert" className="text-destructive text-sm">
                   {errors.problem[0]}
                 </p>
               ) : null}

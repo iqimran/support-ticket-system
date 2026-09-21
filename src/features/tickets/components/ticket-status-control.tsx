@@ -69,22 +69,30 @@ export function TicketStatusControl({ ticketId, currentStatus }: TicketStatusCon
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as TicketStatus)}>
-        <SelectTrigger className="w-44" aria-label="New status">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {nextOptions.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option === "IN_PROGRESS" && currentStatus === "COMPLETED" ? "Reopen (In Progress)" : option.replace("_", " ")}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button type="button" onClick={() => setDialogOpen(true)} disabled={!selectedStatus}>
-        Change status
-      </Button>
+    <div className="space-y-1.5">
+      {/* The select below picks the status to move TO, not the current one
+          (that's already shown as a badge above this control) — this label
+          exists specifically so that isn't ambiguous at a glance. */}
+      <Label htmlFor="new-status" className="text-muted-foreground text-xs font-normal">
+        Change status to
+      </Label>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as TicketStatus)}>
+          <SelectTrigger id="new-status" className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {nextOptions.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option === "IN_PROGRESS" && currentStatus === "COMPLETED" ? "Reopen (In Progress)" : option.replace("_", " ")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button type="button" onClick={() => setDialogOpen(true)} disabled={!selectedStatus}>
+          Change status
+        </Button>
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -99,9 +107,16 @@ export function TicketStatusControl({ ticketId, currentStatus }: TicketStatusCon
 
           <div className="space-y-2 py-2">
             <Label htmlFor="status-note">{isReopen ? "Reason (required)" : "Note (optional)"}</Label>
-            <Textarea id="status-note" rows={3} value={note} onChange={(event) => setNote(event.target.value)} />
+            <Textarea
+              id="status-note"
+              rows={3}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              aria-invalid={!!error}
+              aria-describedby={error ? "status-note-error" : undefined}
+            />
             {error ? (
-              <p role="alert" className="text-destructive text-sm">
+              <p id="status-note-error" role="alert" className="text-destructive text-sm">
                 {error}
               </p>
             ) : null}

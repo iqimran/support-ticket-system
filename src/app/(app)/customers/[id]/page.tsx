@@ -93,12 +93,18 @@ export default async function CustomerDetailPage({ params, searchParams }: Custo
       ),
     },
     {
+      key: "problem",
+      header: "Problem",
+      render: (row) => <span className="line-clamp-2 max-w-[38vw] sm:max-w-xs">{row.problem}</span>,
+      className: "whitespace-normal",
+    },
+    { key: "status", header: sortHeader("Status", "status"), render: (row) => <StatusBadge status={row.status} /> },
+    {
       key: "createdAt",
       header: sortHeader("Date", "createdAt"),
       render: (row) => formatDate(row.createdAt),
+      hideBelow: "sm",
     },
-    { key: "problem", header: "Problem", render: (row) => <span className="line-clamp-2 max-w-xs">{row.problem}</span> },
-    { key: "status", header: sortHeader("Status", "status"), render: (row) => <StatusBadge status={row.status} /> },
     {
       key: "assignedMembers",
       header: "Assigned",
@@ -108,11 +114,13 @@ export default async function CustomerDetailPage({ params, searchParams }: Custo
         ) : (
           <span className="text-muted-foreground">Unassigned</span>
         ),
+      hideBelow: "sm",
     },
     {
       key: "paymentReceived",
       header: "Payment received",
       render: (row) => <MoneyDisplay amount={row.paymentReceived} />,
+      hideBelow: "md",
     },
   ];
 
@@ -146,7 +154,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Custo
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Total historical tickets" value={stats.totalTicketCount} />
         <StatCard label="Active tickets" value={stats.activeTicketCount} />
         <StatCard label="Completed tickets" value={stats.completedTicketCount} />

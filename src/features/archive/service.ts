@@ -3,6 +3,7 @@ import { resolveArchiveCutoff } from "@/features/archive/cutoff";
 import { findArchivableTicketIds, updateArchiveBatch } from "@/features/archive/repository";
 import { recordAuditLog } from "@/server/audit/log";
 import { prisma } from "@/server/db/prisma";
+import { logger } from "@/server/observability/logger";
 
 const DEFAULT_BATCH_SIZE = 100;
 
@@ -239,8 +240,11 @@ export async function runArchiveJob(now: Date = new Date(), batchSize = DEFAULT_
 
   const batch = await claimArchiveRun(cutoffDate);
   if (!batch) {
+    logger.info("archive.job_skipped", { reason: "already_running" });
     return { status: "SKIPPED_ALREADY_RUNNING" };
   }
+
+  logger.info("archive.job_started", { batchId: batch.id, cutoffDate: cutoffDate.toISOString() });
 
   let totalFound = 0;
   let totalProcessed = 0;
@@ -260,8 +264,10 @@ export async function runArchiveJob(now: Date = new Date(), batchSize = DEFAULT_
           totalProcessed++;
           progressedThisPage = true;
         } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           failedIds.add(id);
-          failureMessages.push(error instanceof Error ? error.message : String(error));
+          failureMessages.push(message);
+          logger.warn("archive.ticket_failed", { batchId: batch.id, ticketId: id, error: message });
         }
       }
 
@@ -287,15 +293,23 @@ export async function runArchiveJob(now: Date = new Date(), batchSize = DEFAULT_
       entityId: batch.id,
       metadata: { ticketsFound: totalFound, ticketsProcessed: totalProcessed, cutoffDate: cutoffDate.toISOString() },
     });
+    const logLevel = status === "SUCCEEDED" ? "info" : "error";
+    logger[logLevel](`archive.job_${status === "SUCCEEDED" ? "succeeded" : "failed"}`, {
+      batchId: batch.id,
+      ticketsFound: totalFound,
+      ticketsProcessed: totalProcessed,
+      durationMs: result.completedAt ? result.completedAt.getTime() - result.startedAt.getTime() : null,
+    });
 
     return result;
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     const result = await updateArchiveBatch(batch.id, {
       status: "FAILED",
       ticketsFound: totalFound,
       ticketsProcessed: totalProcessed,
       completedAt: new Date(),
-      errorMessage: error instanceof Error ? error.message : String(error),
+      errorMessage: message,
     });
 
     await recordAuditLog({
@@ -305,6 +319,7 @@ export async function runArchiveJob(now: Date = new Date(), batchSize = DEFAULT_
       entityId: batch.id,
       metadata: { ticketsFound: totalFound, ticketsProcessed: totalProcessed },
     });
+    logger.error("archive.job_failed", { batchId: batch.id, ticketsFound: totalFound, ticketsProcessed: totalProcessed, error: message });
 
     return result;
   }

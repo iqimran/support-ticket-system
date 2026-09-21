@@ -65,18 +65,29 @@ export default async function ArchivePage({ searchParams }: ArchivePageProps) {
     {
       key: "problem",
       header: "Problem",
-      render: (row) => <span className="line-clamp-2 max-w-xs">{row.problem}</span>,
+      render: (row) => <span className="line-clamp-2 max-w-[38vw] sm:max-w-xs">{row.problem}</span>,
+      className: "whitespace-normal",
     },
-    { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => <StatusBadge status={row.status} />,
+      // Same width math as the active tickets list: Ticket #, Customer, and
+      // Problem alone already fill a 390px screen — status is one tap into
+      // the record and already filterable from the dropdown above.
+      hideBelow: "sm",
+    },
     {
       key: "createdAt",
       header: sortHeader("Original creation date", "createdAt"),
       render: (row) => formatDate(row.createdAt),
+      hideBelow: "sm",
     },
     {
       key: "archivedAt",
       header: sortHeader("Archived date", "archivedAt"),
       render: (row) => formatDate(row.archivedAt),
+      hideBelow: "md",
     },
   ];
 

@@ -6,15 +6,15 @@ import type { TeamMemberStat } from "@/features/dashboard/repository";
 export function TeamStatsTable({ stats }: { stats: TeamMemberStat[] }) {
   const columns: DataTableColumn<TeamMemberStat>[] = [
     { key: "teamMemberName", header: "Team member" },
-    { key: "assignedCount", header: "Assigned" },
-    { key: "pendingCount", header: "Pending" },
-    { key: "inProgressCount", header: "In progress" },
     { key: "completedCount", header: "Completed" },
     {
       key: "totalReceived",
       header: "Payments recorded",
       render: (row) => <MoneyDisplay amount={row.totalReceived} />,
     },
+    { key: "assignedCount", header: "Assigned", hideBelow: "sm" },
+    { key: "pendingCount", header: "Pending", hideBelow: "sm" },
+    { key: "inProgressCount", header: "In progress", hideBelow: "sm" },
   ];
 
   return (

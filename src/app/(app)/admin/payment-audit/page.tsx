@@ -66,7 +66,20 @@ export default async function PaymentAuditPage({ searchParams }: PaymentAuditPag
         </Link>
       ),
     },
-    { key: "id", header: "Amount", render: (row) => <AmountChange row={row} /> },
+    {
+      key: "id",
+      header: "Amount",
+      render: (row) => <AmountChange row={row} />,
+      className: "whitespace-normal",
+    },
+    {
+      key: "createdAt",
+      header: "When",
+      render: (row) => formatDateTime(row.createdAt),
+      // Action + Ticket + Amount are the audit trail itself; timestamp,
+      // method, note, and actor are detail that fits once there's room.
+      hideBelow: "sm",
+    },
     {
       key: "oldPaymentMethod",
       header: "Method",
@@ -76,14 +89,20 @@ export default async function PaymentAuditPage({ searchParams }: PaymentAuditPag
           newValue={row.newPaymentMethod}
         />
       ),
+      hideBelow: "sm",
     },
     {
       key: "oldNote",
       header: "Note",
       render: (row) => <FieldChange oldValue={row.oldNote} newValue={row.newNote} />,
+      hideBelow: "md",
     },
-    { key: "changedByUser", header: "Changed by", render: (row) => row.changedByUser.name },
-    { key: "createdAt", header: "When", render: (row) => formatDateTime(row.createdAt) },
+    {
+      key: "changedByUser",
+      header: "Changed by",
+      render: (row) => row.changedByUser.name,
+      hideBelow: "sm",
+    },
   ];
 
   return (

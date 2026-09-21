@@ -59,7 +59,7 @@ export default async function MonthlyReportPage({ searchParams }: MonthlyReportP
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Tickets</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           <StatCard label="Total" value={report.tickets.total} />
           <StatCard label="Completed" value={report.tickets.completed} />
           <StatCard label="Pending" value={report.tickets.pending} />
@@ -70,7 +70,7 @@ export default async function MonthlyReportPage({ searchParams }: MonthlyReportP
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Payments</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-4">
           <StatCard label="Total money received" value={<MoneyDisplay amount={report.payments.totalReceived} />} />
           <StatCard label="Number of payments" value={report.payments.transactionCount} />
         </div>

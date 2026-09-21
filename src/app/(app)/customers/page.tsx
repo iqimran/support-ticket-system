@@ -45,13 +45,14 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
       render: (row) => row.name ?? <span className="text-muted-foreground">—</span>,
     },
     {
+      key: "ticketCount",
+      header: sortHeader("Tickets", "ticketCount"),
+    },
+    {
       key: "address",
       header: "Address",
       render: (row) => row.address ?? <span className="text-muted-foreground">—</span>,
-    },
-    {
-      key: "ticketCount",
-      header: sortHeader("Tickets", "ticketCount"),
+      hideBelow: "sm",
     },
     {
       key: "lastSupportAt",
@@ -62,11 +63,13 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         ) : (
           <span className="text-muted-foreground">—</span>
         ),
+      hideBelow: "sm",
     },
     {
       key: "createdAt",
       header: sortHeader("Created", "createdAt"),
       render: (row) => formatDate(row.createdAt),
+      hideBelow: "md",
     },
   ];
 

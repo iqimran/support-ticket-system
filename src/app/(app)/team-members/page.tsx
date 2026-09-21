@@ -53,8 +53,9 @@ export default async function TeamMembersPage({ searchParams }: TeamMembersPageP
       key: "loginActive",
       header: "Login status",
       render: (row) => <Badge variant={row.loginActive ? "default" : "outline"}>{row.loginActive ? "Enabled" : "Disabled"}</Badge>,
+      hideBelow: "sm",
     },
-    { key: "activeAssignmentCount", header: "Active assignments" },
+    { key: "activeAssignmentCount", header: "Active assignments", hideBelow: "sm" },
   ];
 
   return (

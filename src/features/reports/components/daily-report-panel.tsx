@@ -39,7 +39,7 @@ export function DailyReportPanel({ initialDate, initialSummary }: { initialDate:
         ) : null}
       </div>
       <div className={isPending ? "opacity-50 transition-opacity" : undefined}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           <StatCard label="Created" value={summary.ticketsCreated} />
           <StatCard label="Completed" value={summary.ticketsCompleted} />
           <StatCard label="Pending" value={summary.ticketsPending} description="Created that day, still pending" />

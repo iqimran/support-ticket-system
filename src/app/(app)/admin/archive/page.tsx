@@ -27,17 +27,19 @@ export default async function ArchiveMonitorPage() {
   const columns: DataTableColumn<ArchiveRunSummary>[] = [
     { key: "startedAt", header: "Started", render: (row) => formatDateTime(row.startedAt) },
     { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} tone={STATUS_TONES[row.status]} /> },
-    { key: "ticketsFound", header: "Found" },
-    { key: "ticketsProcessed", header: "Archived" },
+    { key: "ticketsFound", header: "Found", hideBelow: "sm" },
+    { key: "ticketsProcessed", header: "Archived", hideBelow: "sm" },
     {
       key: "durationMs",
       header: "Duration",
       render: (row) => (row.durationMs !== null ? formatDurationMs(row.durationMs) : "—"),
+      hideBelow: "sm",
     },
     {
       key: "errorMessage",
       header: "Error",
       render: (row) => row.errorMessage ?? <span className="text-muted-foreground">—</span>,
+      hideBelow: "md",
     },
   ];
 
@@ -52,7 +54,7 @@ export default async function ArchiveMonitorPage() {
         <CardContent className="space-y-4">
           <h2 className="font-semibold">Last run</h2>
           {latest ? (
-            <div className="grid gap-4 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
               <SummaryStat label="Started" value={formatDateTime(latest.startedAt)} />
               <div>
                 <p className="text-muted-foreground text-xs">Status</p>
@@ -62,7 +64,7 @@ export default async function ArchiveMonitorPage() {
               <SummaryStat label="Duration" value={latest.durationMs !== null ? formatDurationMs(latest.durationMs) : "In progress"} />
               <SummaryStat label="Cutoff date" value={formatDateTime(latest.cutoffDate)} />
               {latest.errorMessage ? (
-                <div className="sm:col-span-5">
+                <div className="col-span-2 sm:col-span-5">
                   <p className="text-muted-foreground text-xs">Error</p>
                   <p className="text-destructive text-sm">{latest.errorMessage}</p>
                 </div>

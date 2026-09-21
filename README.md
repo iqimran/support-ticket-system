@@ -5,7 +5,11 @@ business: customer management, ticket lifecycle and assignment, service
 charge/payment recording with audit history, dashboards/reports, and an
 automatic 3-month active/archive data window.
 
-> Status: project scaffolding only. No business features are implemented yet.
+See also: [DEPLOYMENT.md](DEPLOYMENT.md) (environment variables, build/start,
+scheduled jobs, backup/restore, monitoring), [DATABASE.md](DATABASE.md)
+(schema, migrations, indexes, archive integrity), and
+[SECURITY.md](SECURITY.md) (authentication, authorization, secrets,
+financial-data protection).
 
 ## Stack
 
@@ -49,7 +53,8 @@ automatic 3-month active/archive data window.
 | `npm run test:coverage`  | Vitest with coverage report                |
 | `npm run e2e`            | Playwright end-to-end tests                |
 | `npm run prisma:generate`| Regenerate the Prisma client               |
-| `npm run prisma:migrate` | Create/apply a dev migration               |
+| `npm run prisma:migrate` | Create/apply a **dev** migration (never in production — see DATABASE.md) |
+| `npm run prisma:migrate:deploy` | Apply committed migrations in **production** (see DEPLOYMENT.md) |
 | `npm run prisma:studio`  | Open Prisma Studio                         |
 | `npm run prisma:seed`    | Seed dev data into the current database (fails if it's already seeded — see below) |
 | `npm run prisma:reseed`  | **Reset and reseed**: drops the dev database, reapplies every migration, then seeds fresh realistic data |
@@ -58,22 +63,38 @@ automatic 3-month active/archive data window.
 
 ```
 src/
-  app/                  Next.js routes (App Router)
+  app/                  Next.js routes (App Router): tickets, customers,
+                         team members, dashboard, reports, archive, admin,
+                         plus api/ route handlers (CSV export, cron, health)
   components/
     ui/                 shadcn/ui primitives
-    shared/             reusable, presentation-only components
+    shared/             reusable, presentation-only components (DataTable,
+                         StatCard, empty/loading states, etc.)
   features/             vertical slices: auth, customers, tickets,
-                         payments, dashboard, archive, audit
+                         payments, dashboard, archive, audit, reports,
+                         team-members — each with its own schemas
+                         (Zod), repository (raw queries), service
+                         (business logic/transactions), and actions
+                         (server actions) where applicable
   server/
-    db/                 Prisma client singleton
-    auth/               session/identity resolution
-    authorization/      role-based permission checks
-  lib/                  cross-cutting utilities (env validation, etc.)
+    db/                 Prisma client singleton + error helpers
+    auth/               password hashing, session issuance/validation,
+                         cookies, login rate limiting
+    authorization/      require*() gates + fine-grained permission checks
+    audit/              AuditLog (permanent business-event trail)
+    observability/      structured operational logger (see SECURITY.md)
+  lib/                  cross-cutting utilities (env validation, phone
+                         normalization, date/money formatting, CSV)
+  instrumentation.ts    server-side critical-error logging hook
+  proxy.ts              auth/role fast-path (not the security boundary —
+                         see SECURITY.md)
   types/                shared TypeScript types
   generated/prisma/     generated Prisma client (do not edit)
 prisma/
-  schema.prisma         database schema (models to be added)
-e2e/                    Playwright tests
+  schema.prisma         database schema — see DATABASE.md
+  migrations/           applied migrations, in order
+  seed/, seed.ts         development-only seed data generator
+e2e/                    Playwright end-to-end tests
 ```
 
 ## Architecture rules
@@ -89,11 +110,30 @@ e2e/                    Playwright tests
 - Ticket and archive lists are paginated at the query level — the UI never
   loads unbounded record sets.
 
+## Testing
+
+- **Unit and integration tests** both run via `npm test` (Vitest). Pure-logic
+  tests (`phone.test.ts`, `csv.test.ts`, `schemas.test.ts`, etc.) need no
+  database; most `service.test.ts`/`repository.test.ts`/`actions.test.ts`
+  files are integration tests that exercise real Prisma queries and
+  transactions against the database `DATABASE_URL` points at — see
+  [DATABASE.md § Testing against this database](DATABASE.md#testing-against-this-database)
+  for the shared-database caveat before adding new ones.
+- **End-to-end tests** run via `npm run e2e` (Playwright). This builds and
+  starts a production server (`playwright.config.ts`'s `webServer`) and
+  drives it with a real browser, so a passing e2e run is also a real
+  production-build smoke test. `e2e/global-setup.ts` seeds two fixture
+  accounts (`e2e/fixtures.ts`) before the suite runs.
+- Run `npm run lint && npm run typecheck && npm test && npm run e2e && npm run build`
+  before considering any change ready to ship. There is no CI pipeline
+  configured yet to enforce this automatically — it's a manual step.
+
 ## Database
 
-The `DATABASE_URL` in `.env` must point to a PostgreSQL instance. No schema
-has been defined yet — `prisma/schema.prisma` currently only declares the
-generator and datasource.
+The `DATABASE_URL` in `.env` must point to a PostgreSQL instance. See
+[DATABASE.md](DATABASE.md) for the schema, migration workflow, indexing
+rationale, and archive-integrity design, and
+[DEPLOYMENT.md](DEPLOYMENT.md) for setting one up in production.
 
 ## Development database seeding
 
@@ -149,64 +189,16 @@ pattern in new tests.
 
 ## Scheduled jobs
 
-### Ticket archive job
-
 `src/features/archive/service.ts`'s `runArchiveJob()` moves tickets older
-than the 3-month retention window (plus every related assignment, status
-history entry, note, payment, and payment audit log) into the `*_archive`
-tables, in bounded batches, and is safe to call repeatedly — see that
-file's doc comments for the transaction/locking/idempotency design.
+than the 3-month retention window into the archive tables. It is **not**
+triggered by anything inside this app — see
+[DEPLOYMENT.md § Scheduled archive job](DEPLOYMENT.md#7-scheduled-archive-job)
+for how to trigger it in production (Vercel Cron, a plain crontab, or
+GitHub Actions) and how to monitor it.
 
-It is **not** triggered by anything inside this app. In production, an
-external scheduler must call it once a day:
+## Observability, security, and operations
 
-```
-GET /api/cron/archive
-Authorization: Bearer <ARCHIVE_JOB_SECRET>
-```
-
-The route ([src/app/api/cron/archive/route.ts](src/app/api/cron/archive/route.ts))
-checks that bearer token with a constant-time comparison and returns `401`
-for anything else — including a request with no `ARCHIVE_JOB_SECRET`
-configured at all, so a misconfigured deployment fails closed rather than
-open. Set `ARCHIVE_JOB_SECRET` to a random 32+ character value (see
-`.env.example`) and keep it out of version control and out of any
-client-visible code — it is a server-only secret, never a
-`NEXT_PUBLIC_`-prefixed variable, and the route never echoes it back.
-
-Pick **one** of these to actually invoke it daily, depending on where this
-app is hosted:
-
-- **Vercel** — add a `vercel.json` at the repo root:
-
-  ```json
-  {
-    "crons": [{ "path": "/api/cron/archive", "schedule": "0 3 * * *" }]
-  }
-  ```
-
-  Vercel signs its own cron requests with a `CRON_SECRET` it manages for
-  you and sends it as `Authorization: Bearer $CRON_SECRET` — set
-  `ARCHIVE_JOB_SECRET` in the project's environment variables to the same
-  value as `CRON_SECRET`.
-
-- **A server you control (systemd timer / plain crontab)** — run:
-
-  ```cron
-  0 3 * * * curl -fsS -H "Authorization: Bearer $ARCHIVE_JOB_SECRET" https://your-domain/api/cron/archive
-  ```
-
-  Load `ARCHIVE_JOB_SECRET` from the same secrets store the app itself
-  uses (e.g. an env file readable only by the cron user), not hardcoded in
-  the crontab line.
-
-- **GitHub Actions** (works from anywhere, no server needed) — a
-  `.github/workflows/archive-cron.yml` with a `schedule: - cron: "0 3 * * *"`
-  trigger that runs the same `curl` command, with `ARCHIVE_JOB_SECRET`
-  stored as a repository secret and passed via `${{ secrets.ARCHIVE_JOB_SECRET }}`.
-
-Whichever option is used, monitor the job via **Archive Monitor**
-(`/admin/archive`, admin-only) rather than the scheduler's own logs — it
-shows the last run's status, tickets found/archived, duration, and any
-error, straight from the `ArchiveBatch` audit table, which is the
-authoritative record regardless of which scheduler triggered the run.
+Structured operational logging, health checks, authentication/session
+design, and financial-data protection are documented in
+[SECURITY.md](SECURITY.md). Backup/restore, monitoring, and the
+build/deploy/update process are documented in [DEPLOYMENT.md](DEPLOYMENT.md).

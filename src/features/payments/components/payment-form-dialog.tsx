@@ -121,9 +121,11 @@ export function PaymentFormDialog(props: PaymentFormDialogProps) {
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
                 required
+                aria-invalid={!!errors.amount}
+                aria-describedby={errors.amount ? "amount-error" : undefined}
               />
               {errors.amount ? (
-                <p role="alert" className="text-destructive text-sm">
+                <p id="amount-error" role="alert" className="text-destructive text-sm">
                   {errors.amount[0]}
                 </p>
               ) : null}

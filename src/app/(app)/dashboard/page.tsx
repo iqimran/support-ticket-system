@@ -50,7 +50,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           Total, pending, in progress, and cancelled are counted by ticket creation date; completed is counted by
           completion date — a ticket completed this period may have been created earlier.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           <StatCard label="Total (created)" value={ticketStats.total} />
           <StatCard label="Pending" value={ticketStats.pending} />
           <StatCard label="In progress" value={ticketStats.inProgress} />
@@ -62,7 +62,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Payment statistics</h2>
         <p className="text-muted-foreground text-sm">Calculated from when payments were received, not ticket creation.</p>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <StatCard label="Total received" value={<MoneyDisplay amount={paymentStats.totalReceived} />} />
           <StatCard label="Transactions" value={paymentStats.transactionCount} />
           <StatCard label="Average payment" value={<MoneyDisplay amount={paymentStats.averagePayment} />} />

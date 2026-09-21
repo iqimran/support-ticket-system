@@ -34,15 +34,15 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
   const noteColumns: DataTableColumn<TicketDetail["notes"][number]>[] = [
     { key: "note", header: "Note" },
     { key: "creator", header: "Author", render: (row) => row.creator.name },
-    { key: "createdAt", header: "When", render: (row) => formatDateTime(row.createdAt) },
+    { key: "createdAt", header: "When", render: (row) => formatDateTime(row.createdAt), hideBelow: "sm" },
   ];
 
   const historyColumns: DataTableColumn<TicketDetail["statusHistory"][number]>[] = [
     { key: "oldStatus", header: "From", render: (row) => <StatusBadge status={row.oldStatus} /> },
     { key: "newStatus", header: "To", render: (row) => <StatusBadge status={row.newStatus} /> },
-    { key: "changedByUser", header: "Changed by", render: (row) => row.changedByUser.name },
     { key: "note", header: "Reason / note", render: (row) => row.note ?? <span className="text-muted-foreground">—</span> },
-    { key: "createdAt", header: "When", render: (row) => formatDateTime(row.createdAt) },
+    { key: "changedByUser", header: "Changed by", render: (row) => row.changedByUser.name, hideBelow: "sm" },
+    { key: "createdAt", header: "When", render: (row) => formatDateTime(row.createdAt), hideBelow: "sm" },
   ];
 
   return (

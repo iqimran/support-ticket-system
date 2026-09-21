@@ -1,6 +1,7 @@
 import type { Payment } from "@/generated/prisma/client";
 import type { RecordPaymentInput, UpdatePaymentInput } from "@/features/payments/schemas";
 import { prisma } from "@/server/db/prisma";
+import { logger } from "@/server/observability/logger";
 
 export type RecordPaymentResult =
   | { status: "recorded"; payment: Payment }
@@ -18,13 +19,13 @@ export type RecordPaymentResult =
  * one transaction: a payment must never exist without its audit trail.
  */
 export async function recordPayment(input: RecordPaymentInput, receivedBy: string): Promise<RecordPaymentResult> {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const ticket = await tx.ticket.findUnique({ where: { id: input.ticketId } });
     if (!ticket) {
-      return { status: "ticket_not_found" };
+      return { status: "ticket_not_found" } as const;
     }
     if (ticket.status !== "COMPLETED") {
-      return { status: "ticket_not_completed" };
+      return { status: "ticket_not_completed" } as const;
     }
 
     const payment = await tx.payment.create({
@@ -50,8 +51,22 @@ export async function recordPayment(input: RecordPaymentInput, receivedBy: strin
       },
     });
 
-    return { status: "recorded", payment };
+    return { status: "recorded", payment } as const;
   });
+
+  if (result.status === "recorded") {
+    logger.info("payment.recorded", {
+      paymentId: result.payment.id,
+      ticketId: result.payment.ticketId,
+      amount: result.payment.amount.toString(),
+      paymentMethod: result.payment.paymentMethod,
+      receivedBy,
+    });
+  } else {
+    logger.warn("payment.record_rejected", { ticketId: input.ticketId, reason: result.status, receivedBy });
+  }
+
+  return result;
 }
 
 export type UpdatePaymentResult = { status: "updated"; payment: Payment } | { status: "not_found" };
@@ -67,10 +82,10 @@ export async function updatePayment(
   input: UpdatePaymentInput,
   changedBy: string,
 ): Promise<UpdatePaymentResult> {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.payment.findUnique({ where: { id: paymentId } });
     if (!existing) {
-      return { status: "not_found" };
+      return { status: "not_found" } as const;
     }
 
     const updated = await tx.payment.update({
@@ -98,6 +113,20 @@ export async function updatePayment(
       },
     });
 
-    return { status: "updated", payment: updated };
+    return { status: "updated", payment: updated, oldAmount: existing.amount } as const;
   });
+
+  if (result.status === "updated") {
+    logger.info("payment.updated", {
+      paymentId: result.payment.id,
+      ticketId: result.payment.ticketId,
+      oldAmount: result.oldAmount.toString(),
+      newAmount: result.payment.amount.toString(),
+      changedBy,
+    });
+  } else {
+    logger.warn("payment.update_rejected", { paymentId, reason: result.status, changedBy });
+  }
+
+  return result;
 }

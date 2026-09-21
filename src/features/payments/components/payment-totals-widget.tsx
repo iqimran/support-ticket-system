@@ -31,11 +31,11 @@ export function PaymentTotalsWidget({ todayTotal, monthTotal }: PaymentTotalsWid
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
       <Card>
         <CardContent className="space-y-1 p-4">
           <p className="text-muted-foreground text-xs">Today</p>
-          <p className="text-2xl font-semibold">
+          <p className="text-xl font-semibold sm:text-2xl">
             <MoneyDisplay amount={todayTotal} />
           </p>
         </CardContent>
@@ -43,19 +43,19 @@ export function PaymentTotalsWidget({ todayTotal, monthTotal }: PaymentTotalsWid
       <Card>
         <CardContent className="space-y-1 p-4">
           <p className="text-muted-foreground text-xs">This month</p>
-          <p className="text-2xl font-semibold">
+          <p className="text-xl font-semibold sm:text-2xl">
             <MoneyDisplay amount={monthTotal} />
           </p>
         </CardContent>
       </Card>
-      <Card>
+      <Card className="col-span-2 sm:col-span-1">
         <CardContent className="space-y-2 p-4">
           <p className="text-muted-foreground text-xs">Custom range</p>
           <DateRangePicker value={range} onChange={handleRangeChange} placeholder="Pick a range" />
           {isPending ? (
             <p className="text-muted-foreground text-sm">Calculating...</p>
           ) : rangeTotal !== null ? (
-            <p className="text-2xl font-semibold">
+            <p className="text-xl font-semibold sm:text-2xl">
               <MoneyDisplay amount={rangeTotal} />
             </p>
           ) : null}

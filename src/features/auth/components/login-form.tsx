@@ -13,14 +13,31 @@ export function LoginForm() {
     <form action={formAction} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="phone">Phone</Label>
-        <Input id="phone" name="phone" type="tel" autoComplete="username" required />
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          autoComplete="username"
+          required
+          autoFocus
+          aria-invalid={!!state?.error}
+          aria-describedby={state?.error ? "login-error" : undefined}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required />
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          aria-invalid={!!state?.error}
+          aria-describedby={state?.error ? "login-error" : undefined}
+        />
       </div>
       {state?.error ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p id="login-error" role="alert" className="text-sm text-destructive">
           {state.error}
         </p>
       ) : null}

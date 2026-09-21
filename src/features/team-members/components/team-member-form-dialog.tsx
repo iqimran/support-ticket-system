@@ -107,9 +107,16 @@ export function TeamMemberFormDialog(props: TeamMemberFormDialogProps) {
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="tm-name">Name</Label>
-                <Input id="tm-name" value={name} onChange={(event) => setName(event.target.value)} required />
+                <Input
+                  id="tm-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  required
+                  aria-invalid={!!errors.name}
+                  aria-describedby={errors.name ? "tm-name-error" : undefined}
+                />
                 {errors.name ? (
-                  <p role="alert" className="text-destructive text-sm">
+                  <p id="tm-name-error" role="alert" className="text-destructive text-sm">
                     {errors.name[0]}
                   </p>
                 ) : null}
@@ -117,9 +124,17 @@ export function TeamMemberFormDialog(props: TeamMemberFormDialogProps) {
 
               <div className="space-y-2">
                 <Label htmlFor="tm-phone">Phone</Label>
-                <Input id="tm-phone" placeholder="01712345678" value={phone} onChange={(event) => setPhone(event.target.value)} required />
+                <Input
+                  id="tm-phone"
+                  placeholder="01712345678"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  required
+                  aria-invalid={!!errors.phone}
+                  aria-describedby={errors.phone ? "tm-phone-error" : undefined}
+                />
                 {errors.phone ? (
-                  <p role="alert" className="text-destructive text-sm">
+                  <p id="tm-phone-error" role="alert" className="text-destructive text-sm">
                     {errors.phone[0]}
                   </p>
                 ) : null}

@@ -11,6 +11,19 @@ export type DataTableColumn<T> = {
   render?: (row: T) => ReactNode;
   className?: string;
   ariaSort?: "ascending" | "descending" | "none";
+  /**
+   * Hides this column below the given breakpoint so the table's most
+   * important columns fit a phone screen without horizontal scrolling —
+   * the column is still reachable by scrolling, just not shown by default.
+   * Put the identifying/status columns a phone needs first and mark
+   * everything else (dates, secondary counts) with this.
+   */
+  hideBelow?: "sm" | "md";
+};
+
+const HIDE_BELOW_CLASS: Record<"sm" | "md", string> = {
+  sm: "hidden sm:table-cell",
+  md: "hidden md:table-cell",
 };
 
 type DataTableProps<T> = {
@@ -27,6 +40,10 @@ type DataTableProps<T> = {
 // Responsive strategy: a horizontally scrollable container rather than a
 // mobile card layout. Simpler, keeps column alignment, and is the standard
 // pattern for dense internal business tables (as opposed to a marketing UI).
+// Columns marked `hideBelow` are additionally dropped on narrow screens so
+// the columns that matter most (identity, status) are visible without
+// scrolling at all — scrolling is a fallback for the rest, not the default
+// way to see what you need.
 export function DataTable<T>({
   columns,
   data,
@@ -55,7 +72,11 @@ export function DataTable<T>({
         <TableHeader>
           <TableRow>
             {columns.map((column) => (
-              <TableHead key={column.key} className={column.className} aria-sort={column.ariaSort}>
+              <TableHead
+                key={column.key}
+                className={cn(column.hideBelow && HIDE_BELOW_CLASS[column.hideBelow], column.className)}
+                aria-sort={column.ariaSort}
+              >
                 {column.header}
               </TableHead>
             ))}
@@ -65,7 +86,10 @@ export function DataTable<T>({
           {data.map((row) => (
             <TableRow key={getRowId(row)}>
               {columns.map((column) => (
-                <TableCell key={column.key} className={column.className}>
+                <TableCell
+                  key={column.key}
+                  className={cn(column.hideBelow && HIDE_BELOW_CLASS[column.hideBelow], column.className)}
+                >
                   {column.render ? column.render(row) : String(row[column.key] ?? "")}
                 </TableCell>
               ))}

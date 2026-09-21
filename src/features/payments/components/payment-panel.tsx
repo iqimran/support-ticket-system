@@ -21,9 +21,9 @@ export function PaymentPanel({ ticketId, ticketStatus, payments, totalReceived }
   const columns: DataTableColumn<PaymentRow>[] = [
     { key: "amount", header: "Amount", render: (row) => <MoneyDisplay amount={row.amount.toString()} /> },
     { key: "paymentMethod", header: "Method", render: (row) => row.paymentMethod.replace("_", " ") },
-    { key: "note", header: "Note", render: (row) => row.note ?? <span className="text-muted-foreground">—</span> },
-    { key: "receiver", header: "Received by", render: (row) => row.receiver.name },
     { key: "receivedAt", header: "Received", render: (row) => formatDate(row.receivedAt) },
+    { key: "note", header: "Note", render: (row) => row.note ?? <span className="text-muted-foreground">—</span>, hideBelow: "sm" },
+    { key: "receiver", header: "Received by", render: (row) => row.receiver.name, hideBelow: "sm" },
     {
       key: "id",
       header: "",

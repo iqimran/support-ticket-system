@@ -40,10 +40,12 @@ export function TicketNoteForm({ ticketId }: { ticketId: string }) {
         value={note}
         onChange={(event) => setNote(event.target.value)}
         aria-label="New note"
+        aria-invalid={!!error}
+        aria-describedby={error ? "note-error" : undefined}
         required
       />
       {error ? (
-        <p role="alert" className="text-destructive text-sm">
+        <p id="note-error" role="alert" className="text-destructive text-sm">
           {error}
         </p>
       ) : null}

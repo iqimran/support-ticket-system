@@ -122,9 +122,15 @@ export function CustomerFormDialog(props: CustomerFormDialogProps) {
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" placeholder="01712345678" {...form.register("phone")} />
+              <Input
+                id="phone"
+                placeholder="01712345678"
+                aria-invalid={!!form.formState.errors.phone}
+                aria-describedby={form.formState.errors.phone ? "phone-error" : undefined}
+                {...form.register("phone")}
+              />
               {form.formState.errors.phone ? (
-                <p role="alert" className="text-destructive text-sm">
+                <p id="phone-error" role="alert" className="text-destructive text-sm">
                   {form.formState.errors.phone.message}
                 </p>
               ) : null}
@@ -143,9 +149,14 @@ export function CustomerFormDialog(props: CustomerFormDialogProps) {
 
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" {...form.register("name")} />
+              <Input
+                id="name"
+                aria-invalid={!!form.formState.errors.name}
+                aria-describedby={form.formState.errors.name ? "name-error" : undefined}
+                {...form.register("name")}
+              />
               {form.formState.errors.name ? (
-                <p role="alert" className="text-destructive text-sm">
+                <p id="name-error" role="alert" className="text-destructive text-sm">
                   {form.formState.errors.name.message}
                 </p>
               ) : null}
