@@ -2,16 +2,15 @@ import type { Ticket, TicketAssignment, TicketNote } from "@/generated/prisma/cl
 import type { TicketStatus } from "@/generated/prisma/enums";
 import type { CreateTicketInput } from "@/features/tickets/schemas";
 import {
-  createTicketAssignmentRecord,
   createTicketRecord,
   deleteTicketAssignmentRecord,
-  findTeamMemberById,
-  findTicketAssignment,
-  findTicketById,
+  findTicketAssignmentById,
   findTeamMemberByUserId,
   generateTicketNumber,
   addTicketNoteRecord,
 } from "@/features/tickets/repository";
+import { canRemoveTicketAssignment } from "@/server/authorization";
+import type { AuthUser } from "@/server/auth/types";
 import { isUniqueConstraintError } from "@/server/db/errors";
 import { prisma } from "@/server/db/prisma";
 
@@ -111,41 +110,95 @@ export function addTicketNote(ticketId: string, createdBy: string, note: string)
   return addTicketNoteRecord(ticketId, createdBy, note);
 }
 
-export type AssignTeamMemberResult =
-  | { status: "assigned"; assignment: TicketAssignment }
+export type InvalidTeamMember = { teamMemberId: string; reason: "not_found" | "inactive" };
+
+export type AssignTeamMembersResult =
+  | { status: "assigned"; assignments: TicketAssignment[] }
   | { status: "ticket_not_found" }
-  | { status: "team_member_not_found" }
-  | { status: "already_assigned" };
+  | { status: "no_team_members" }
+  | { status: "invalid_team_members"; invalid: InvalidTeamMember[] }
+  | { status: "already_assigned"; teamMemberIds: string[] };
 
-export async function assignTeamMember(
+/**
+ * Assigns one or more team members to a ticket atomically: either every
+ * requested id is created as a TicketAssignment row, or none are. Deactivated
+ * team members (TeamMember.isActive = false) can never be *newly* assigned —
+ * this is checked here so it applies uniformly regardless of caller (admin,
+ * self-assign, or assigning someone else), not just at the UI picker level.
+ */
+export async function assignTeamMembers(
   ticketId: string,
-  teamMemberId: string,
+  teamMemberIds: string[],
   assignedBy: string,
-): Promise<AssignTeamMemberResult> {
-  const [ticket, teamMember] = await Promise.all([findTicketById(ticketId), findTeamMemberById(teamMemberId)]);
-
-  if (!ticket) return { status: "ticket_not_found" };
-  if (!teamMember) return { status: "team_member_not_found" };
-
-  const existing = await findTicketAssignment(ticketId, teamMemberId);
-  if (existing) return { status: "already_assigned" };
+): Promise<AssignTeamMembersResult> {
+  const uniqueIds = Array.from(new Set(teamMemberIds));
+  if (uniqueIds.length === 0) return { status: "no_team_members" };
 
   try {
-    const assignment = await createTicketAssignmentRecord(ticketId, teamMemberId, assignedBy);
-    return { status: "assigned", assignment };
+    return await prisma.$transaction(async (tx) => {
+      const ticket = await tx.ticket.findUnique({ where: { id: ticketId } });
+      if (!ticket) return { status: "ticket_not_found" };
+
+      const teamMembers = await tx.teamMember.findMany({ where: { id: { in: uniqueIds } } });
+      const teamMemberById = new Map(teamMembers.map((teamMember) => [teamMember.id, teamMember]));
+
+      const invalid: InvalidTeamMember[] = uniqueIds.flatMap((teamMemberId): InvalidTeamMember[] => {
+        const teamMember = teamMemberById.get(teamMemberId);
+        if (!teamMember) return [{ teamMemberId, reason: "not_found" }];
+        if (!teamMember.isActive) return [{ teamMemberId, reason: "inactive" }];
+        return [];
+      });
+      if (invalid.length > 0) return { status: "invalid_team_members", invalid };
+
+      const existing = await tx.ticketAssignment.findMany({
+        where: { ticketId, teamMemberId: { in: uniqueIds } },
+        select: { teamMemberId: true },
+      });
+      if (existing.length > 0) {
+        return { status: "already_assigned", teamMemberIds: existing.map((row) => row.teamMemberId) };
+      }
+
+      const assignments: TicketAssignment[] = [];
+      for (const teamMemberId of uniqueIds) {
+        assignments.push(await tx.ticketAssignment.create({ data: { ticketId, teamMemberId, assignedBy } }));
+      }
+
+      return { status: "assigned", assignments };
+    });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      return { status: "already_assigned" };
+      // A concurrent request won the race between our check and insert.
+      return { status: "already_assigned", teamMemberIds: uniqueIds };
     }
     throw error;
   }
 }
 
-export type RemoveAssignmentResult = { status: "removed" } | { status: "not_found" };
+export type RemoveAssignmentResult =
+  | { status: "removed"; teamMemberId: string }
+  | { status: "not_found" }
+  | { status: "forbidden" };
 
-export async function removeAssignment(assignmentId: string): Promise<RemoveAssignmentResult> {
+/**
+ * `ticketId` is required (not just the assignmentId) so an assignment can
+ * only be removed via the ticket it actually belongs to, and `actor` enforces
+ * canRemoveTicketAssignment: ADMIN can remove any assignment, a TEAM_MEMBER
+ * only their own.
+ */
+export async function removeAssignment(
+  assignmentId: string,
+  ticketId: string,
+  actor: AuthUser,
+): Promise<RemoveAssignmentResult> {
+  const assignment = await findTicketAssignmentById(assignmentId);
+  if (!assignment || assignment.ticketId !== ticketId) return { status: "not_found" };
+
+  if (!canRemoveTicketAssignment(actor, assignment)) return { status: "forbidden" };
+
   const result = await deleteTicketAssignmentRecord(assignmentId);
-  return result.count > 0 ? { status: "removed" } : { status: "not_found" };
+  if (result.count === 0) return { status: "not_found" };
+
+  return { status: "removed", teamMemberId: assignment.teamMemberId };
 }
 
 /** Resolves the TeamMember profile for "assign self" — null if the caller (e.g. an ADMIN with no team profile) has none. */

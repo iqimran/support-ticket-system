@@ -1,2 +1,2 @@
-export { canAccessTicket, canViewPaymentAudit } from "./permissions";
+export { canAccessTicket, canRemoveTicketAssignment, canViewPaymentAudit } from "./permissions";
 export { getCurrentUser, requireAdmin, requireAuth, requireTeamMember } from "./require";

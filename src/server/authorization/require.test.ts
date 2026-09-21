@@ -19,7 +19,7 @@ vi.mock("next/headers", () => ({
 // Imported after the mock so requireAuth/requireAdmin/requireTeamMember pick
 // up the mocked next/headers instead of the real request-scoped cookies().
 const { requireAuth, requireAdmin, requireTeamMember } = await import("./require");
-const { canAccessTicket, canViewPaymentAudit } = await import("./permissions");
+const { canAccessTicket, canRemoveTicketAssignment, canViewPaymentAudit } = await import("./permissions");
 
 const FIXTURE_ADMIN_PHONE = "01900000001";
 const FIXTURE_TEAM_MEMBER_PHONE = "01900000002";
@@ -149,5 +149,22 @@ describe("canViewPaymentAudit / canAccessTicket (pure permission functions)", ()
     expect(canAccessTicket(admin)).toBe(true);
     expect(canAccessTicket(teamMember)).toBe(true);
     expect(canAccessTicket({ ...teamMember, isActive: false })).toBe(false);
+  });
+});
+
+describe("canRemoveTicketAssignment (pure permission function)", () => {
+  const admin: AuthUser = { id: "admin-x", name: "x", phone: "x", role: "ADMIN", isActive: true };
+  const teamMember: AuthUser = { id: "member-y", name: "y", phone: "y", role: "TEAM_MEMBER", isActive: true };
+  const ownAssignment = { teamMember: { userId: teamMember.id } };
+  const othersAssignment = { teamMember: { userId: "someone-else" } };
+
+  it("ADMIN can remove any assignment", () => {
+    expect(canRemoveTicketAssignment(admin, ownAssignment)).toBe(true);
+    expect(canRemoveTicketAssignment(admin, othersAssignment)).toBe(true);
+  });
+
+  it("TEAM_MEMBER can only remove their own assignment", () => {
+    expect(canRemoveTicketAssignment(teamMember, ownAssignment)).toBe(true);
+    expect(canRemoveTicketAssignment(teamMember, othersAssignment)).toBe(false);
   });
 });

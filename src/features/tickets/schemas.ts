@@ -43,12 +43,12 @@ export const addTicketNoteSchema = z.object({
 
 export type AddTicketNoteInput = z.infer<typeof addTicketNoteSchema>;
 
-export const assignTeamMemberSchema = z.object({
+export const assignTeamMembersSchema = z.object({
   ticketId: z.string().trim().min(1),
-  teamMemberId: z.string().trim().min(1),
+  teamMemberIds: z.array(z.string().trim().min(1)).min(1, "Select at least one team member"),
 });
 
-export type AssignTeamMemberInput = z.infer<typeof assignTeamMemberSchema>;
+export type AssignTeamMembersInput = z.infer<typeof assignTeamMembersSchema>;
 
 export const ticketSearchSchema = z.object({
   query: z.string().trim().max(200).optional().default(""),

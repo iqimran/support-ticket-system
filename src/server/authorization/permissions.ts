@@ -12,3 +12,11 @@ export function canAccessTicket(user: AuthUser, _ticket?: { id: string }): boole
 export function canViewPaymentAudit(user: AuthUser): boolean {
   return user.role === "ADMIN";
 }
+
+/**
+ * ADMIN may remove any ticket assignment. A TEAM_MEMBER may only remove
+ * their own — the assignment's teamMember must belong to that same user.
+ */
+export function canRemoveTicketAssignment(user: AuthUser, assignment: { teamMember: { userId: string } }): boolean {
+  return user.role === "ADMIN" || assignment.teamMember.userId === user.id;
+}

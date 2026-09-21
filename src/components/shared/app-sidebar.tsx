@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ADMIN_NAV_ITEMS, NAV_ITEMS, type NavItem } from "@/components/shared/nav-items";
+import { ORG_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 type AppSidebarProps = {
@@ -40,7 +41,7 @@ export function AppSidebar({ showAdminNav }: AppSidebarProps) {
   return (
     <aside className="bg-background hidden w-56 shrink-0 flex-col border-r md:flex">
       <div className="flex h-14 items-center border-b px-4">
-        <span className="text-sm font-semibold tracking-tight">CCTV Support</span>
+        <span className="text-sm font-semibold tracking-tight">{ORG_NAME}</span>
       </div>
       <nav aria-label="Primary" className="flex flex-1 flex-col gap-1 p-3">
         {NAV_ITEMS.map((item) => (

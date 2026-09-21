@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ORG_NAME } from "@/lib/constants";
 import { getCurrentUser } from "@/server/authorization";
 
 export default async function LoginPage() {
@@ -10,7 +11,8 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center p-4">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 p-4">
+      <h1 className="text-2xl font-bold tracking-tight">{ORG_NAME}</h1>
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Sign in</CardTitle>

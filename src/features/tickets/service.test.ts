@@ -2,17 +2,26 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hashPassword } from "@/server/auth/password";
 import { prisma } from "@/server/db/prisma";
-import { addTicketNote, assignTeamMember, changeTicketStatus, createTicket, removeAssignment } from "./service";
+import type { AuthUser } from "@/server/auth/types";
+import { addTicketNote, assignTeamMembers, changeTicketStatus, createTicket, removeAssignment } from "./service";
 
 const CREATOR_PHONE = "01900000031";
 const CUSTOMER_PHONE = "+8801911190001";
 const MEMBER_A_PHONE = "01900000041";
 const MEMBER_B_PHONE = "01900000042";
+const MEMBER_INACTIVE_PHONE = "01900000043";
+const ADMIN_PHONE = "01900000044";
 
 let creatorId: string;
 let customerId: string;
 let teamMemberAId: string;
 let teamMemberBId: string;
+let teamMemberInactiveId: string;
+let memberAUserId: string;
+let memberBUserId: string;
+let adminActor: AuthUser;
+let memberAActor: AuthUser;
+let memberBActor: AuthUser;
 const cleanupUserIds: string[] = [];
 const cleanupCustomerIds: string[] = [];
 const cleanupTicketIds: string[] = [];
@@ -43,6 +52,7 @@ beforeAll(async () => {
     create: { userId: memberAUser.id, name: "Member A", phone: MEMBER_A_PHONE },
   });
   teamMemberAId = memberA.id;
+  memberAUserId = memberAUser.id;
   cleanupUserIds.push(memberAUser.id);
 
   const memberBUser = await prisma.user.upsert({
@@ -56,7 +66,32 @@ beforeAll(async () => {
     create: { userId: memberBUser.id, name: "Member B", phone: MEMBER_B_PHONE },
   });
   teamMemberBId = memberB.id;
+  memberBUserId = memberBUser.id;
   cleanupUserIds.push(memberBUser.id);
+
+  const memberInactiveUser = await prisma.user.upsert({
+    where: { phone: MEMBER_INACTIVE_PHONE },
+    update: {},
+    create: { name: "Member Inactive", phone: MEMBER_INACTIVE_PHONE, passwordHash, role: "TEAM_MEMBER" },
+  });
+  const memberInactive = await prisma.teamMember.upsert({
+    where: { userId: memberInactiveUser.id },
+    update: { isActive: false },
+    create: { userId: memberInactiveUser.id, name: "Member Inactive", phone: MEMBER_INACTIVE_PHONE, isActive: false },
+  });
+  teamMemberInactiveId = memberInactive.id;
+  cleanupUserIds.push(memberInactiveUser.id);
+
+  const admin = await prisma.user.upsert({
+    where: { phone: ADMIN_PHONE },
+    update: {},
+    create: { name: "Fixture Admin", phone: ADMIN_PHONE, passwordHash, role: "ADMIN" },
+  });
+  cleanupUserIds.push(admin.id);
+
+  adminActor = { id: admin.id, name: admin.name, phone: admin.phone, role: "ADMIN", isActive: true };
+  memberAActor = { id: memberAUserId, name: "Member A", phone: MEMBER_A_PHONE, role: "TEAM_MEMBER", isActive: true };
+  memberBActor = { id: memberBUserId, name: "Member B", phone: MEMBER_B_PHONE, role: "TEAM_MEMBER", isActive: true };
 });
 
 afterAll(async () => {
@@ -198,76 +233,202 @@ describe("addTicketNote", () => {
   });
 });
 
-describe("assignTeamMember / removeAssignment", () => {
-  it("assigns a team member and records who made the assignment", async () => {
+describe("assignTeamMembers", () => {
+  it("assigns a single team member and records who made the assignment", async () => {
     const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
     cleanupTicketIds.push(ticket.id);
 
-    const result = await assignTeamMember(ticket.id, teamMemberAId, creatorId);
+    const result = await assignTeamMembers(ticket.id, [teamMemberAId], creatorId);
 
     expect(result.status).toBe("assigned");
     if (result.status === "assigned") {
-      expect(result.assignment.teamMemberId).toBe(teamMemberAId);
-      expect(result.assignment.assignedBy).toBe(creatorId);
+      expect(result.assignments).toHaveLength(1);
+      expect(result.assignments[0]!.teamMemberId).toBe(teamMemberAId);
+      expect(result.assignments[0]!.assignedBy).toBe(creatorId);
     }
   });
 
-  it("supports multiple different team members on one ticket", async () => {
+  it("assigns multiple different team members to one ticket in a single call (admin: assign multiple members)", async () => {
     const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
     cleanupTicketIds.push(ticket.id);
 
-    await assignTeamMember(ticket.id, teamMemberAId, creatorId);
-    await assignTeamMember(ticket.id, teamMemberBId, creatorId);
+    const result = await assignTeamMembers(ticket.id, [teamMemberAId, teamMemberBId], adminActor.id);
+
+    expect(result.status).toBe("assigned");
+    if (result.status === "assigned") {
+      expect(result.assignments.map((a) => a.teamMemberId).sort()).toEqual([teamMemberAId, teamMemberBId].sort());
+    }
 
     const assignments = await prisma.ticketAssignment.findMany({ where: { ticketId: ticket.id } });
     expect(assignments).toHaveLength(2);
+  });
+
+  it("dedupes a repeated id within the same call instead of creating duplicate rows", async () => {
+    const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
+    cleanupTicketIds.push(ticket.id);
+
+    const result = await assignTeamMembers(ticket.id, [teamMemberAId, teamMemberAId], creatorId);
+
+    expect(result.status).toBe("assigned");
+    if (result.status === "assigned") {
+      expect(result.assignments).toHaveLength(1);
+    }
   });
 
   it("prevents assigning the same team member to the same ticket twice", async () => {
     const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
     cleanupTicketIds.push(ticket.id);
 
-    const first = await assignTeamMember(ticket.id, teamMemberAId, creatorId);
+    const first = await assignTeamMembers(ticket.id, [teamMemberAId], creatorId);
     expect(first.status).toBe("assigned");
 
-    const second = await assignTeamMember(ticket.id, teamMemberAId, creatorId);
+    const second = await assignTeamMembers(ticket.id, [teamMemberAId], creatorId);
     expect(second.status).toBe("already_assigned");
+    if (second.status === "already_assigned") {
+      expect(second.teamMemberIds).toEqual([teamMemberAId]);
+    }
 
     const assignments = await prisma.ticketAssignment.count({ where: { ticketId: ticket.id, teamMemberId: teamMemberAId } });
     expect(assignments).toBe(1);
   });
 
-  it("returns team_member_not_found for a nonexistent team member", async () => {
+  it("rolls back the whole batch (uses a transaction) when one of several ids is already assigned", async () => {
     const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
     cleanupTicketIds.push(ticket.id);
 
-    const result = await assignTeamMember(ticket.id, "does-not-exist", creatorId);
-    expect(result.status).toBe("team_member_not_found");
+    await assignTeamMembers(ticket.id, [teamMemberAId], creatorId);
+
+    const result = await assignTeamMembers(ticket.id, [teamMemberAId, teamMemberBId], creatorId);
+    expect(result.status).toBe("already_assigned");
+
+    const bAssigned = await prisma.ticketAssignment.findUnique({
+      where: { ticketId_teamMemberId: { ticketId: ticket.id, teamMemberId: teamMemberBId } },
+    });
+    expect(bAssigned).toBeNull();
   });
 
-  it("removes an assignment", async () => {
+  it("returns invalid_team_members (not_found) for a nonexistent team member", async () => {
     const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
     cleanupTicketIds.push(ticket.id);
 
-    const assigned = await assignTeamMember(ticket.id, teamMemberAId, creatorId);
+    const result = await assignTeamMembers(ticket.id, ["does-not-exist"], creatorId);
+    expect(result.status).toBe("invalid_team_members");
+    if (result.status === "invalid_team_members") {
+      expect(result.invalid).toEqual([{ teamMemberId: "does-not-exist", reason: "not_found" }]);
+    }
+  });
+
+  it("does not allow a deactivated team member to be newly assigned", async () => {
+    const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
+    cleanupTicketIds.push(ticket.id);
+
+    const result = await assignTeamMembers(ticket.id, [teamMemberInactiveId], creatorId);
+    expect(result.status).toBe("invalid_team_members");
+    if (result.status === "invalid_team_members") {
+      expect(result.invalid).toEqual([{ teamMemberId: teamMemberInactiveId, reason: "inactive" }]);
+    }
+
+    const assigned = await prisma.ticketAssignment.findUnique({
+      where: { ticketId_teamMemberId: { ticketId: ticket.id, teamMemberId: teamMemberInactiveId } },
+    });
+    expect(assigned).toBeNull();
+  });
+
+  it("rejects the entire batch (no partial assignment) when one of several ids is inactive", async () => {
+    const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
+    cleanupTicketIds.push(ticket.id);
+
+    const result = await assignTeamMembers(ticket.id, [teamMemberAId, teamMemberInactiveId], creatorId);
+    expect(result.status).toBe("invalid_team_members");
+
+    const aAssigned = await prisma.ticketAssignment.findUnique({
+      where: { ticketId_teamMemberId: { ticketId: ticket.id, teamMemberId: teamMemberAId } },
+    });
+    expect(aAssigned).toBeNull();
+  });
+
+  it("returns ticket_not_found for a nonexistent ticket", async () => {
+    const result = await assignTeamMembers("does-not-exist", [teamMemberAId], creatorId);
+    expect(result.status).toBe("ticket_not_found");
+  });
+
+  it("returns no_team_members for an empty selection", async () => {
+    const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
+    cleanupTicketIds.push(ticket.id);
+
+    const result = await assignTeamMembers(ticket.id, [], creatorId);
+    expect(result.status).toBe("no_team_members");
+  });
+});
+
+describe("removeAssignment", () => {
+  it("allows an ADMIN to remove any team member's assignment", async () => {
+    const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
+    cleanupTicketIds.push(ticket.id);
+    const assigned = await assignTeamMembers(ticket.id, [teamMemberAId], creatorId);
     if (assigned.status !== "assigned") throw new Error("fixture setup failed");
 
-    const removed = await removeAssignment(assigned.assignment.id);
+    const removed = await removeAssignment(assigned.assignments[0]!.id, ticket.id, adminActor);
     expect(removed.status).toBe("removed");
 
-    const stillThere = await prisma.ticketAssignment.findUnique({ where: { id: assigned.assignment.id } });
+    const stillThere = await prisma.ticketAssignment.findUnique({ where: { id: assigned.assignments[0]!.id } });
     expect(stillThere).toBeNull();
+  });
+
+  it("allows a TEAM_MEMBER to remove their own assignment", async () => {
+    const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
+    cleanupTicketIds.push(ticket.id);
+    const assigned = await assignTeamMembers(ticket.id, [teamMemberAId], creatorId);
+    if (assigned.status !== "assigned") throw new Error("fixture setup failed");
+
+    const removed = await removeAssignment(assigned.assignments[0]!.id, ticket.id, memberAActor);
+    expect(removed.status).toBe("removed");
+  });
+
+  it("forbids a TEAM_MEMBER from removing a different team member's assignment", async () => {
+    const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
+    cleanupTicketIds.push(ticket.id);
+    const assigned = await assignTeamMembers(ticket.id, [teamMemberAId], creatorId);
+    if (assigned.status !== "assigned") throw new Error("fixture setup failed");
+
+    const result = await removeAssignment(assigned.assignments[0]!.id, ticket.id, memberBActor);
+    expect(result.status).toBe("forbidden");
+
+    const stillThere = await prisma.ticketAssignment.findUnique({ where: { id: assigned.assignments[0]!.id } });
+    expect(stillThere).not.toBeNull();
+  });
+
+  it("returns not_found when the assignment does not belong to the given ticket", async () => {
+    const ticketOne = await createTicket({ customerId, problem: "Issue 1" }, creatorId);
+    const ticketTwo = await createTicket({ customerId, problem: "Issue 2" }, creatorId);
+    cleanupTicketIds.push(ticketOne.id, ticketTwo.id);
+    const assigned = await assignTeamMembers(ticketOne.id, [teamMemberAId], creatorId);
+    if (assigned.status !== "assigned") throw new Error("fixture setup failed");
+
+    const result = await removeAssignment(assigned.assignments[0]!.id, ticketTwo.id, adminActor);
+    expect(result.status).toBe("not_found");
+
+    const stillThere = await prisma.ticketAssignment.findUnique({ where: { id: assigned.assignments[0]!.id } });
+    expect(stillThere).not.toBeNull();
+  });
+
+  it("returns not_found for a nonexistent assignment", async () => {
+    const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
+    cleanupTicketIds.push(ticket.id);
+
+    const result = await removeAssignment("does-not-exist", ticket.id, adminActor);
+    expect(result.status).toBe("not_found");
   });
 
   it("allows re-assigning a team member after their prior assignment was removed", async () => {
     const ticket = await createTicket({ customerId, problem: "Issue" }, creatorId);
     cleanupTicketIds.push(ticket.id);
 
-    const assigned = await assignTeamMember(ticket.id, teamMemberAId, creatorId);
+    const assigned = await assignTeamMembers(ticket.id, [teamMemberAId], creatorId);
     if (assigned.status !== "assigned") throw new Error("fixture setup failed");
-    await removeAssignment(assigned.assignment.id);
+    await removeAssignment(assigned.assignments[0]!.id, ticket.id, adminActor);
 
-    const reassigned = await assignTeamMember(ticket.id, teamMemberAId, creatorId);
+    const reassigned = await assignTeamMembers(ticket.id, [teamMemberAId], creatorId);
     expect(reassigned.status).toBe("assigned");
   });
 });

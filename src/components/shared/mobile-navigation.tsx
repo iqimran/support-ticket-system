@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ADMIN_NAV_ITEMS, NAV_ITEMS } from "@/components/shared/nav-items";
+import { ORG_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 type MobileNavigationProps = {
@@ -29,7 +30,7 @@ export function MobileNavigation({ showAdminNav }: MobileNavigationProps) {
       </SheetTrigger>
       <SheetContent side="left" className="w-72 p-0">
         <SheetHeader>
-          <SheetTitle>CCTV Support</SheetTitle>
+          <SheetTitle>{ORG_NAME}</SheetTitle>
         </SheetHeader>
         <nav aria-label="Primary" className="flex flex-col gap-1 px-3 pb-4">
           {allItems.map((item) => {

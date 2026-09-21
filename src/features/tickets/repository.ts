@@ -29,17 +29,13 @@ export function createTicketRecord(data: CreateTicketRecordInput) {
   return prisma.ticket.create({ data });
 }
 
-export function findTicketById(id: string) {
-  return prisma.ticket.findUnique({ where: { id } });
-}
-
 const ticketDetailInclude = {
   customer: true,
   creator: { select: { id: true, name: true } },
   assignments: {
     orderBy: { assignedAt: "asc" as const },
     include: {
-      teamMember: { select: { id: true, name: true, phone: true, isActive: true } },
+      teamMember: { select: { id: true, userId: true, name: true, phone: true, isActive: true } },
       assigner: { select: { id: true, name: true } },
     },
   },
@@ -158,16 +154,6 @@ export function addTicketNoteRecord(ticketId: string, createdBy: string, note: s
   });
 }
 
-export function createTicketAssignmentRecord(ticketId: string, teamMemberId: string, assignedBy: string) {
-  return prisma.ticketAssignment.create({
-    data: { ticketId, teamMemberId, assignedBy },
-    include: {
-      teamMember: { select: { id: true, name: true, phone: true, isActive: true } },
-      assigner: { select: { id: true, name: true } },
-    },
-  });
-}
-
 export function deleteTicketAssignmentRecord(assignmentId: string) {
   return prisma.ticketAssignment.deleteMany({ where: { id: assignmentId } });
 }
@@ -176,13 +162,11 @@ export function findTeamMemberByUserId(userId: string) {
   return prisma.teamMember.findUnique({ where: { userId } });
 }
 
-export function findTeamMemberById(id: string) {
-  return prisma.teamMember.findUnique({ where: { id } });
-}
-
-export function findTicketAssignment(ticketId: string, teamMemberId: string) {
+/** For assignment-removal authorization: which user does this assignment's team member belong to, and which ticket is it on. */
+export function findTicketAssignmentById(id: string) {
   return prisma.ticketAssignment.findUnique({
-    where: { ticketId_teamMemberId: { ticketId, teamMemberId } },
+    where: { id },
+    include: { teamMember: { select: { id: true, userId: true } } },
   });
 }
 

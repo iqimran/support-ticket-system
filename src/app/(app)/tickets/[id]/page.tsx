@@ -17,12 +17,12 @@ import { getTicketDetail } from "@/features/tickets/queries";
 import type { TicketDetail } from "@/features/tickets/repository";
 import { formatDateTime } from "@/lib/format-date";
 import { formatBangladeshiPhoneForDisplay } from "@/lib/phone";
-import { requireTeamMember } from "@/server/authorization";
+import { canRemoveTicketAssignment, requireTeamMember } from "@/server/authorization";
 
 type TicketDetailPageProps = { params: Promise<{ id: string }> };
 
 export default async function TicketDetailPage({ params }: TicketDetailPageProps) {
-  await requireTeamMember();
+  const user = await requireTeamMember();
 
   const { id } = await params;
   const detail = await getTicketDetail(id);
@@ -103,12 +103,18 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
         <Card>
           <CardContent className="space-y-3">
-            <h2 className="font-semibold">Assigned members</h2>
+            <h2 className="font-semibold">Assigned team members</h2>
             <TicketAssignmentPanel
               ticketId={ticket.id}
               assignments={ticket.assignments.map((assignment) => ({
                 id: assignment.id,
-                teamMember: assignment.teamMember,
+                teamMember: {
+                  id: assignment.teamMember.id,
+                  name: assignment.teamMember.name,
+                  phone: assignment.teamMember.phone,
+                  isActive: assignment.teamMember.isActive,
+                },
+                canRemove: canRemoveTicketAssignment(user, assignment),
               }))}
             />
           </CardContent>
