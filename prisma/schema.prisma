@@ -40,6 +40,12 @@ enum PaymentAuditAction {
   DELETE_ATTEMPTED
 }
 
+enum ArchiveBatchStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
 /// Login/auth identity + role. Business-facing team member profile data
 /// lives on TeamMember, linked 1:1 via TeamMember.userId.
 model User {
@@ -253,4 +259,152 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([entityType, entityId])
+}
+
+/// One row per invocation of the ticket-archive job
+/// (src/features/archive/service.ts). Each ticket is archived in its own
+/// transaction, so a FAILED batch means everything up to ticketsProcessed
+/// already committed successfully — the job is idempotent and safe to
+/// re-run, since an already-archived ticket no longer exists in the live
+/// Ticket table and will not be reselected as a candidate.
+model ArchiveBatch {
+  id               String             @id @default(cuid())
+  startedAt        DateTime           @default(now())
+  completedAt      DateTime?
+  cutoffDate       DateTime
+  status           ArchiveBatchStatus @default(RUNNING)
+  ticketsFound     Int                @default(0)
+  ticketsProcessed Int                @default(0)
+  errorMessage     String?
+
+  archivedTickets TicketArchive[]
+
+  @@index([startedAt])
+}
+
+/// Archived copy of a Ticket older than the retention window (see
+/// src/features/archive/cutoff.ts). Uses the SAME `id` as the original
+/// Ticket row — this is the "reliable originalTicketId relationship": the
+/// id IS the original ticket's id, so every historical reference (audit log
+/// entityId, URLs already shared with a customer, etc.) keeps resolving
+/// after archiving. Every related record type below preserves its original
+/// id the same way.
+///
+/// customerId/createdBy are deliberately plain columns, not foreign keys:
+/// Customer and User are live, permanent tables that archiving never
+/// touches, so the id alone is a stable, sufficient pointer without
+/// coupling this table's schema to theirs.
+model TicketArchive {
+  id             String         @id
+  ticketNumber   String         @unique
+  customerId     String
+  problem        String
+  status         TicketStatus
+  priority       TicketPriority
+  createdBy      String
+  createdAt      DateTime
+  updatedAt      DateTime
+  completedAt    DateTime?
+  archivedAt     DateTime       @default(now())
+  archiveBatchId String
+
+  batch            ArchiveBatch                 @relation(fields: [archiveBatchId], references: [id], onDelete: Restrict)
+  assignments      TicketAssignmentArchive[]
+  statusHistory    TicketStatusHistoryArchive[]
+  notes            TicketNoteArchive[]
+  payments         PaymentArchive[]
+  paymentAuditLogs PaymentAuditLogArchive[]
+
+  // Optimized for historical customer search (by customerId) and
+  // ticket-number search (the unique constraint above already gives an
+  // index for exact/prefix lookups); createdAt/archivedAt support
+  // date-range historical queries the same way the live Ticket table does.
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([archivedAt])
+  @@map("tickets_archive")
+}
+
+model TicketAssignmentArchive {
+  id           String   @id
+  ticketId     String
+  teamMemberId String
+  assignedBy   String
+  assignedAt   DateTime
+
+  ticket TicketArchive @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([teamMemberId])
+  @@map("ticket_assignments_archive")
+}
+
+model TicketStatusHistoryArchive {
+  id        String       @id
+  ticketId  String
+  oldStatus TicketStatus
+  newStatus TicketStatus
+  changedBy String
+  note      String?
+  createdAt DateTime
+
+  ticket TicketArchive @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_status_history_archive")
+}
+
+model TicketNoteArchive {
+  id        String   @id
+  ticketId  String
+  createdBy String
+  note      String
+  createdAt DateTime
+  updatedAt DateTime
+
+  ticket TicketArchive @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_notes_archive")
+}
+
+model PaymentArchive {
+  id            String        @id
+  ticketId      String
+  amount        Decimal       @db.Decimal(12, 2)
+  paymentMethod PaymentMethod
+  note          String?
+  receivedBy    String
+  receivedAt    DateTime
+  createdAt     DateTime
+  updatedAt     DateTime
+
+  ticket    TicketArchive            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  auditLogs PaymentAuditLogArchive[]
+
+  @@index([ticketId])
+  @@index([receivedAt])
+  @@map("payments_archive")
+}
+
+model PaymentAuditLogArchive {
+  id               String             @id
+  paymentId        String
+  ticketId         String
+  action           PaymentAuditAction
+  oldAmount        Decimal?           @db.Decimal(12, 2)
+  newAmount        Decimal?           @db.Decimal(12, 2)
+  oldPaymentMethod PaymentMethod?
+  newPaymentMethod PaymentMethod?
+  oldNote          String?
+  newNote          String?
+  changedBy        String
+  createdAt        DateTime
+
+  payment PaymentArchive @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  ticket  TicketArchive  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([ticketId])
+  @@map("payment_audit_log_archive")
 }

@@ -1,5 +1,6 @@
 import {
   Archive,
+  ArchiveRestore,
   BarChart3,
   LayoutDashboard,
   ScrollText,
@@ -33,4 +34,5 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: "Team Members", href: "/team-members", icon: UserCog },
   { label: "Payment Audit", href: "/admin/payment-audit", icon: ShieldCheck },
   { label: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
+  { label: "Archive Monitor", href: "/admin/archive", icon: ArchiveRestore },
 ];
