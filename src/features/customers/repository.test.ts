@@ -60,8 +60,9 @@ describe("listCustomers (search)", () => {
 
   it("returns all customers (no filtering) when the query is empty", async () => {
     // pageSize large enough to not depend on how many other customers
-    // already exist in this shared dev database.
-    const { items } = await listCustomers({ ...basePagination, query: "", pageSize: 100 });
+    // already exist in this shared dev database (which always carries
+    // ~120 seeded customers alongside these 3 fixtures — see prisma/seed.ts).
+    const { items } = await listCustomers({ ...basePagination, query: "", pageSize: 1000 });
     const ids = items.map((item) => item.id);
     expect(ids).toEqual(expect.arrayContaining(createdCustomerIds));
   });
@@ -80,7 +81,7 @@ describe("listCustomers (search)", () => {
     const { items } = await listCustomers({
       ...basePagination,
       query: "",
-      pageSize: 100,
+      pageSize: 1000,
       sortBy: "name",
       sortDir: "asc",
     });

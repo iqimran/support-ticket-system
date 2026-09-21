@@ -445,10 +445,14 @@ describe("runArchiveJob", () => {
 
     const result = await runArchiveJob(NOW);
 
+    // SKIPPED_ALREADY_RUNNING (rather than a real ArchiveBatch object) is
+    // itself the proof that this call never created a second batch row.
     expect(result.status).toBe("SKIPPED_ALREADY_RUNNING");
-    // Nothing was touched — the ticket is untouched and no second batch row was created.
+    // Nothing was touched — the ticket is untouched and the pre-existing RUNNING batch is unchanged.
     expect(await prisma.ticket.findUnique({ where: { id: ticket.id } })).not.toBeNull();
-    expect(await prisma.archiveBatch.count({ where: { cutoffDate: CUTOFF } })).toBe(1);
+    expect(await prisma.archiveBatch.findUnique({ where: { id: inProgressBatch.id } })).toMatchObject({
+      status: "RUNNING",
+    });
   });
 
   it("under genuine concurrent invocation, archives each ticket exactly once with no duplicates", async () => {

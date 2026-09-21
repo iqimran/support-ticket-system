@@ -51,6 +51,8 @@ automatic 3-month active/archive data window.
 | `npm run prisma:generate`| Regenerate the Prisma client               |
 | `npm run prisma:migrate` | Create/apply a dev migration               |
 | `npm run prisma:studio`  | Open Prisma Studio                         |
+| `npm run prisma:seed`    | Seed dev data into the current database (fails if it's already seeded — see below) |
+| `npm run prisma:reseed`  | **Reset and reseed**: drops the dev database, reapplies every migration, then seeds fresh realistic data |
 
 ## Project structure
 
@@ -92,6 +94,58 @@ e2e/                    Playwright tests
 The `DATABASE_URL` in `.env` must point to a PostgreSQL instance. No schema
 has been defined yet — `prisma/schema.prisma` currently only declares the
 generator and datasource.
+
+## Development database seeding
+
+`prisma/seed.ts` (plus its helpers in `prisma/seed/`) generates a realistic,
+deterministic development dataset — not the sparse handful of rows you'd get
+from clicking through the UI a few times:
+
+- 1 admin (`SEED_ADMIN_PHONE`/`SEED_ADMIN_PASSWORD`/`SEED_ADMIN_NAME` in
+  `.env`, same as before) + 5 team members (one deliberately deactivated, to
+  exercise "historical assignment to a now-inactive team member"). All 5
+  team members log in with the phone printed by the seed script and the
+  password `ChangeMe123!`.
+- 120+ customers with synthetic Bangladeshi-style names, phone numbers, and
+  addresses — common name components, never a real person's identity.
+- 1,380+ tickets covering realistic CCTV problems (camera offline, DVR not
+  recording, NVR storage full, blurry image, power/network issues, HDD/camera
+  replacement, mobile app configuration, playback issues, and more), each
+  with a plausible assignment/status-history/notes/payment trail: at least
+  100 pending/in-progress, 500 completed, 200 cancelled (all in the active
+  3-month window), and 500+ more that are old enough to have been swept into
+  archive storage by the **real** `runArchiveJob()` — not a hand-copied
+  imitation of it — so the seeded archive data is guaranteed consistent with
+  whatever the actual archive pipeline does.
+- Payments on most completed tickets, with a realistic slice later corrected
+  (an `UPDATED` `PaymentAuditLog` entry alongside the original `CREATED` one).
+
+**Deterministic**: every random choice goes through a seeded PRNG
+(`prisma/seed/random.ts`), never `Math.random()`, and the whole script is
+anchored to a fixed reference "now" rather than the real clock. Resetting and
+reseeding twice in a row produces byte-for-byte identical customers, tickets,
+dates, and text every time — verified by diffing two consecutive runs.
+
+**To reset and reseed:**
+
+```bash
+npm run prisma:reseed
+```
+
+This drops the database, reapplies every migration, and runs the seed
+script automatically (via Prisma's own `migrate reset`, configured in
+`prisma.config.ts`). It's destructive — run it only against your local dev
+database, never anything shared or production. `npm run prisma:seed` alone
+(without a reset first) will fail with unique-constraint errors if the
+database already has this seed data in it; it's only meant to run once
+against a freshly migrated, empty database.
+
+Integration tests share this same dev database (see `vitest.config.mts`), so
+after seeding it always contains this full dataset in the background — any
+test that lists/searches/counts rows without scoping to its own fixtures
+will see it. Existing tests already account for this (filter or scope by
+known ids rather than asserting exact global totals); follow the same
+pattern in new tests.
 
 ## Scheduled jobs
 

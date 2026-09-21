@@ -63,19 +63,27 @@ beforeAll(async () => {
   });
   memberTeamId = member.id;
 
-  const customerA = await prisma.customer.create({ data: { phone: CUSTOMER_A_PHONE, name: "Rahim Customer" } });
+  // Names deliberately outside the dev-seed script's realistic Bengali name
+  // pools (prisma/seed/data.ts) — this shared dev database always carries
+  // ~120 seeded customers, so a fixture named e.g. "Karim ..." risks
+  // colliding with a real seeded "Karim" and inflating search results.
+  const customerA = await prisma.customer.create({ data: { phone: CUSTOMER_A_PHONE, name: "Zyxatest Alphaperson" } });
   customerAId = customerA.id;
-  const customerB = await prisma.customer.create({ data: { phone: CUSTOMER_B_PHONE, name: "Karim Person" } });
+  const customerB = await prisma.customer.create({ data: { phone: CUSTOMER_B_PHONE, name: "Zyxatest Betaperson" } });
   customerBId = customerB.id;
 
   const batch = await prisma.archiveBatch.create({ data: { cutoffDate: new Date("2025-06-01") } });
   batchId = batch.id;
 
+  // Ticket numbers use a distinctive "ZYXATEST" marker with long (6-digit)
+  // numeric tags — short digit fragments (e.g. "001") risk coincidentally
+  // matching a substring of one of the ~120 seeded customers' random
+  // 8-digit phone numbers, inflating "search by ticket number" results.
   // Ticket 1: customer A, COMPLETED, Jan 2025, full related-record history.
   const ticket1 = await prisma.ticketArchive.create({
     data: ticketData({
       id: "archivesearchfixture01",
-      ticketNumber: "TKT-SEARCHTEST-741",
+      ticketNumber: "TKT-ZYXATEST-100001",
       customerId: customerAId,
       status: "COMPLETED",
       createdAt: new Date("2025-01-05T00:00:00.000Z"),
@@ -128,7 +136,7 @@ beforeAll(async () => {
   const ticket2 = await prisma.ticketArchive.create({
     data: ticketData({
       id: "archivesearchfixture02",
-      ticketNumber: "TKT-SEARCHTEST-852",
+      ticketNumber: "TKT-ZYXATEST-100002",
       customerId: customerBId,
       status: "PENDING",
       createdAt: new Date("2025-02-10T00:00:00.000Z"),
@@ -140,7 +148,7 @@ beforeAll(async () => {
   const ticket3 = await prisma.ticketArchive.create({
     data: ticketData({
       id: "archivesearchfixture03",
-      ticketNumber: "TKT-SEARCHTEST-963",
+      ticketNumber: "TKT-ZYXATEST-100003",
       customerId: customerAId,
       status: "CANCELLED",
       createdAt: new Date("2025-03-15T00:00:00.000Z"),
@@ -163,10 +171,15 @@ afterAll(async () => {
 });
 
 describe("searchArchivedTickets", () => {
+  // This shared dev database always carries ~520 seeded archived tickets
+  // (see prisma/seed.ts) alongside these 3 fixtures, so every assertion
+  // below is scoped to "ZYXATEST" and/or these fixtures' own ids —
+  // asserting an exact global `total` would be broken by design (and was,
+  // before this file was updated for the seed script).
   it("finds a ticket by (partial) ticket number", async () => {
-    const result = await searchArchivedTickets({ ...baseSearch, query: "SEARCHTEST-852" });
+    const result = await searchArchivedTickets({ ...baseSearch, query: "ZYXATEST-100002" });
     expect(result.total).toBe(1);
-    expect(result.items[0]?.ticketNumber).toBe("TKT-SEARCHTEST-852");
+    expect(result.items[0]?.ticketNumber).toBe("TKT-ZYXATEST-100002");
   });
 
   it("finds every ticket for a customer by phone", async () => {
@@ -174,30 +187,34 @@ describe("searchArchivedTickets", () => {
     const result = await searchArchivedTickets({ ...baseSearch, query: phoneDigits });
     expect(result.total).toBe(2);
     expect(new Set(result.items.map((item) => item.ticketNumber))).toEqual(
-      new Set(["TKT-SEARCHTEST-741", "TKT-SEARCHTEST-963"]),
+      new Set(["TKT-ZYXATEST-100001", "TKT-ZYXATEST-100003"]),
     );
   });
 
   it("finds a ticket by (partial) customer name", async () => {
-    const result = await searchArchivedTickets({ ...baseSearch, query: "Karim" });
+    const result = await searchArchivedTickets({ ...baseSearch, query: "Zyxatest Betaperson" });
     expect(result.total).toBe(1);
-    expect(result.items[0]?.customer.name).toBe("Karim Person");
+    expect(result.items[0]?.customer.name).toBe("Zyxatest Betaperson");
   });
 
   it("filters by status", async () => {
-    const result = await searchArchivedTickets({ ...baseSearch, status: "COMPLETED" });
+    // "ZYXATEST" alone (no digits) matches only these 3 fixtures via
+    // ticketNumber — it can't also match a customer name/phone — so
+    // combining it with the status filter safely scopes to just this set.
+    const result = await searchArchivedTickets({ ...baseSearch, query: "ZYXATEST", status: "COMPLETED" });
     expect(result.total).toBe(1);
-    expect(result.items[0]?.ticketNumber).toBe("TKT-SEARCHTEST-741");
+    expect(result.items[0]?.ticketNumber).toBe("TKT-ZYXATEST-100001");
   });
 
   it("filters by original creation date range", async () => {
     const result = await searchArchivedTickets({
       ...baseSearch,
+      query: "ZYXATEST",
       dateFrom: new Date("2025-02-01T00:00:00.000Z"),
       dateTo: new Date("2025-02-28T23:59:59.000Z"),
     });
     expect(result.total).toBe(1);
-    expect(result.items[0]?.ticketNumber).toBe("TKT-SEARCHTEST-852");
+    expect(result.items[0]?.ticketNumber).toBe("TKT-ZYXATEST-100002");
   });
 
   it("returns no results for a query that matches nothing", async () => {
@@ -207,7 +224,7 @@ describe("searchArchivedTickets", () => {
   });
 
   it("paginates at the database level: each page is a distinct, correctly-ordered slice", async () => {
-    const params = { ...baseSearch, query: "SEARCHTEST", sortBy: "createdAt" as const, sortDir: "asc" as const, pageSize: 1 };
+    const params = { ...baseSearch, query: "ZYXATEST", sortBy: "createdAt" as const, sortDir: "asc" as const, pageSize: 1 };
 
     const page1 = await searchArchivedTickets({ ...params, page: 1 });
     const page2 = await searchArchivedTickets({ ...params, page: 2 });
@@ -220,20 +237,20 @@ describe("searchArchivedTickets", () => {
     expect(page2.items).toHaveLength(1);
     expect(page3.items).toHaveLength(1);
     expect([page1, page2, page3].map((p) => p.items[0]?.ticketNumber)).toEqual([
-      "TKT-SEARCHTEST-741",
-      "TKT-SEARCHTEST-852",
-      "TKT-SEARCHTEST-963",
+      "TKT-ZYXATEST-100001",
+      "TKT-ZYXATEST-100002",
+      "TKT-ZYXATEST-100003",
     ]);
   });
 
   it("returns results shaped for display: ticket number, customer, problem, status, original creation date, archived date", async () => {
-    const result = await searchArchivedTickets({ ...baseSearch, query: "SEARCHTEST-741" });
+    const result = await searchArchivedTickets({ ...baseSearch, query: "ZYXATEST-100001" });
     const item = result.items[0];
     expect(item).toMatchObject({
-      ticketNumber: "TKT-SEARCHTEST-741",
+      ticketNumber: "TKT-ZYXATEST-100001",
       problem: "Fixture archived ticket",
       status: "COMPLETED",
-      customer: { name: "Rahim Customer" },
+      customer: { name: "Zyxatest Alphaperson" },
     });
     expect(item?.createdAt).toBeInstanceOf(Date);
     expect(item?.archivedAt).toBeInstanceOf(Date);
@@ -266,7 +283,7 @@ describe("findArchivedTicketBundle — permissions", () => {
     expect(bundle?.statusHistory[0]?.changedByName).toBe("Archive Search Fixture Creator");
     expect(bundle?.notes[0]?.creatorName).toBe("Archive Search Fixture Creator");
     expect(bundle?.payments[0]?.receiverName).toBe("Archive Search Fixture Creator");
-    expect(bundle?.customer?.name).toBe("Rahim Customer");
+    expect(bundle?.customer?.name).toBe("Zyxatest Alphaperson");
   });
 
   it("returns empty (not missing) related-record arrays for a ticket with no history", async () => {
